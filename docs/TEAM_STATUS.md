@@ -316,8 +316,40 @@ The project owner appointed this session **second head**: I make direct changes 
 
 **Increment commit:** `9d14ed0` (math fix + tests + contract notes #12-13 + this entry); follow-up `9d14ed0`-adjacent commit carries `src/types/css.d.ts`. Draft `timeline-view.ts`/`timeline.css` intentionally left untracked per README-ownership.
 
+## Agent 4 (Phase 4, `packages/templates`) log
+
+### Agent 4 — baseline report (2026-10-15, Phase 4 opened)
+
+**What I own (per Phase 4 opening):** `packages/templates/**` (`@ve/templates`) — template system (schema, create-from-project, apply-to-new-project, starter library of ORIGINAL templates) + AI-assisted tool provider interfaces (reframe, background removal, scene/clip search, filler-word removal, script-to-video, voice generation) with honest `status()` gating. No edits to `packages/engine/**`, `packages/app/**`, `packages/effects/**`, `packages/audio/**`. Contract/UI integration = proposals in "Contract review notes" + announcements here. Append-only in `docs/FEATURE_MATRIX.md` (the existing Phase-4 section is my scope's rows — I will update Status cells in place and append new rows beneath, never restructure other agents' sections).
+
+**What I'll change:** create `packages/templates` (zero runtime dependencies — Node stdlib + local ffmpeg/ffprobe only); append my entries here; append "Contract review notes (Agent 4, Phase 4)" to the contract; update/append Phase-4 rows in `docs/FEATURE_MATRIX.md`; `packages/templates/README.md` with the availability table (feature → implementation path → available? → evidence label). Commit only my own files.
+
+**Environment probe (Observed, 2026-10-15, this machine):**
+- ffmpeg filters present: `chromakey`, `colorkey`, `alphamerge`, `scdet`, `select`, `signalstats`, `geq` (plus the set already documented by Agents 1/2.5).
+- encoders present: `png`, `prores_ks` (alpha-capable 4444 possible), `libvpx-vp9`, `prores`.
+- `/usr/bin/say` present with local system voices; `ffprobe` present.
+- ⇒ **genuinely-local paths exist** for: smart-reframe crop heuristics (ffmpeg frame analysis), scene detection (frame-diff heuristics), chroma-key background removal (**uniform backgrounds only** — subject segmentation stays a stub), system-voice synthesis (`say` → ffmpeg conversion, local & free). ASR/LLM/model-dependent paths (filler detection, script-to-video generation, ML segmentation) stay honest stubs.
+
+**Design decisions I'm making without escalation (charter: sensible defaults):**
+(a) `@ve/templates` does **not** import `@ve/engine` — it mirrors the contract's shapes structurally (`Ticks`, `Rational`, `ProjectFile`, `TextContent`, `TICKS_PER_SECOND = 70_560_000` mirrored as a documented constant) so it builds/tests standalone, same pattern as `@ve/audio` and `@ve/effects`.
+(b) Tests via `node:test` on compiled output (workspace convention), **no new dependencies**, **no `npm install`** (standing rule). Note: `package-lock.json` currently has no entries for `packages/audio`/`packages/effects` either (Observed) — I follow that precedent and leave the lockfile untouched; a head can run one `npm install` later to register all three workspaces.
+(c) Template library = **real JSON files** in `packages/templates/library/` (loadable/inspectable without a build), validated on load.
+(d) `applyTemplate` produces a standard contract `ProjectFile` (fresh ids; text assets recreated the engine's way — `kind:'text'`, `source.path:''`, `clip.text` mirroring `asset.text`) and is checked by an exported structural `validateProjectFile` in tests.
+
+**Decisions I need:** none blocking. For Agent 1: contract notes will propose the `templates.*` bridge surface, `ProviderKind` extensions for my tool categories, and registration of package-level tool providers into the engine's existing `ProviderRegistry` when you're ready.
+
 ### COORDINATOR — Phase 4 opened + acceptance walkthrough published (2026-10-15)
 
 - **Phase 4 agent launched** → owns `packages/templates/**` (original template system + starter library, AI tool interfaces behind honest provider stubs). Same coordination rules as Phases 2/3.
 - **`docs/ACCEPTANCE_WALKTHROUGH.md`** is now the literal gate script — 10 steps + prereqs; I run it myself at gate #2. B1/B2 owners: those two prereq checkboxes are your lanes.
 - Owner granted blanket permission to continue through all phases without pause; network/paid services remain individually gated (charter) — provider stubs only.
+
+### SECOND HEAD — increment 3 (2026-10-15 18:45)
+
+**Files touched (announced):** `packages/app/src/ui/features/export-dialog/export-dialog.ts`, `packages/app/src/ui/features/preview/preview.ts`, `docs/REVIEW_LOG.md` (Review #3), this entry. Both target files were cold when edited (last writes 18:10 / 18:02); `electron/main.ts` was in-flight — not touched by me.
+
+1. **E1 fixed** — export-dialog Browse button was never re-enabled after an export finished/failed/cancelled (one line in `refreshStart()`).
+2. **E2 fixed** — preview `localUrl()` file-URL encoding: `encodeURI` leaves `#`/`?`/`%` bare → files like `Clip #1.mp4` failed to load; now per-segment `encodeURIComponent`.
+3. **B1 re-verified GREEN 18:44** — both app tsconfigs exit 0. Coordinator: walkthrough prereq "B1 currently RED" is stale, re-check at gate.
+4. Findings **E3–E6** in `docs/REVIEW_LOG.md` Review #3 — E3 (preview silences audio tracks under video; chip only covers visual layers) needs an honesty-rule call from canonical Agent 2: mix or label.
+5. `scripts/export-e2e.mjs` stays team-2 Agent 1's lane — I see it growing (22 KB); no duplicate work from me.

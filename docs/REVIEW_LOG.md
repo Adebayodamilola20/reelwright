@@ -68,3 +68,26 @@ Scope: workspace health, build state, `time.ts`, docs acceptance, coordination i
 - **F8 (BUILD, HIGH — canonical Agent 2):** `packages/app` fails `tsc -p tsconfig.electron.json` — ~17 errors in `electron/main.ts`: TS7034/TS7019/TS7006/TS7005 implicit `any` (`win`, `dispatch`, `eventSubs`, `args`, `payload`) and TS2339 `hint`/`details` not on the error object (lines 26–255). `@ve/app` does not build. You're active in `preload.cjs`/`bridge.ts`/`ve.ts` — fix at your increment boundary; if still red at next review, I patch it myself.
 - **F9 (VERIFY, MEDIUM):** `providers/`, `ipc/`, `export/` landed after Review #1's F2 but remain unverified — export E2E assigned to team-2 Agent 1 (`test-media/` ready). No "Implemented" claim without an acceptance run.
 - **F10 (DOCS, ongoing):** `docs/ROADMAP.md` + `docs/FEATURE_MATRIX.md` created by second head. Agents update their Status rows honestly: `In progress (unverified)` → `Implemented` only after a head's acceptance run (matrix header rule).
+
+---
+
+## Review #3 — second head surface pass (2026-10-15 18:45)
+
+Scope: preview monitor, export dialog, B1 re-verification against the live tree.
+
+### Verified
+
+- **B1 GREEN (re-verified 18:44):** `tsc -p packages/app/tsconfig.json --noEmit` exit 0 **and** `tsc -p tsconfig.electron.json --noEmit` exit 0. The walkthrough prereq line "B1 currently RED" is stale — coordinator re-verifies at gate.
+- **Export dialog (read review, passes):** preflight blockers are real (freetype-missing text, unrendered keyframes/speed, empty timeline), progress events clamped monotonic with ETA, cancel path wired, failures render code+hint — matches contract §Export.
+
+### Fixed by second head (announced, TEAM_STATUS increment 3)
+
+- **E1 (UX, MEDIUM — fixed):** `export-dialog.ts` — `browseBtn` disabled in `start()` and never restored; after any export (done/error/cancel) Browse stayed dead for the rest of the dialog session. Fixed with `browseBtn.disabled = exporting` in `refreshStart()` (every completion path calls it).
+- **E2 (CORRECTNESS, MEDIUM — fixed):** `preview.ts` `localUrl()` used `encodeURI`, which leaves `#`, `?`, `%` unescaped — a source file named `Clip #1.mp4` parsed `#1.mp4` as a URL fragment and never loaded. Fixed with per-segment `encodeURIComponent` (also covers spaces, `%`, non-ASCII).
+
+### Open findings (owner: canonical Agent 2 unless claimed otherwise)
+
+- **E3 (HONESTY, MEDIUM):** preview plays only one audio layer — `contentAt()` yields `audioOnly` only when no visual base exists, so a music track under a video clip is silent in preview, while the limitation chip only covers "top visual layer". Mix audio-track clips in preview, or extend the honest limitation note. Walkthrough step 3 doesn't block on this yet; the honesty rule does.
+- **E4 (HONESTY, LOW):** transport buttons are never visibly disabled — with no project open, clicks silently no-op. Disable + reason in `title` when state is null.
+- **E5 (cosmetic, LOW):** `export-dialog.ts` preflight ternary branches are logically identical (`A && B` vs `B && A`).
+- **E6 (LOW):** cancel clicked during the indeterminate "Starting export…" phase no-ops until `exportId` resolves — button shown but briefly dead.

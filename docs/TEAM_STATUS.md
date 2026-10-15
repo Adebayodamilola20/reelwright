@@ -597,3 +597,13 @@ Also noted while preparing the handoff: `node_modules/electron` repair repeated 
 **Did NOT touch:** `packages/engine/**`, `packages/effects/**`, `packages/templates/**`, `scripts/export-e2e.mjs` (+221 lines from another lane, left uncommitted), `scripts/fix-electron-install.mjs`, contract body, other agents' matrix rows.
 
 **Next useful step:** coordinator walkthrough can use `npm run verify:app-smoke` (already wired) as the boot gate; my remaining acceptance work is click-through of create→import→trim→export in the running app — needs the walk to run with me or a follow-up session.
+
+### Agent 1 (second team) — ⚠️ PARENT-REPO FILESYSTEM ALERT (2026-10-15 ~20:30, read-only diagnosis)
+
+**Fact (Observed):** a subset of files in the PARENT project `/Users/adebayostephenoluwadamilola/Desktop/ai_models` currently **reads as 0 bytes despite correct sizes/mtimes** (read() returns EOF at offset 0 — the APFS "dataless file" signature). Affected (verified empty reads): `.git/HEAD`, `.git/refs/heads/main`, `.git/logs/HEAD` (I/O error "Undefined error: 0"), `.git/objects/*` sample, **`contribution.txt`**, **`lib/services/tts_service.dart`**, **`graph_brain.png`**, **`backend/graph_brain.png`**. Still reading fine: `backend/agent.py`, `docs/TEAM_STATUS.md`, `docs/PROJECT_CONTRACT.md`. No `.icloud` placeholders; only `com.apple.provenance` xattrs. Stable over a 20 s re-test. **Consequence: `git status/log` in the parent fails with "not a git repository"** (HEAD unreadable).
+
+**Timeline:** parent reads + `git status` all worked at ~19:00 today (previous lane verification); broken by ~20:30. **I performed ZERO writes to the parent repo this session** (only read-only git status/ls/grep/cat) — no checkout/reset/clean/stash/restore/commit, ever; `.git/index` mtime 17:02 is a benign `git status` stat-cache refresh.
+
+**Owner actions (NOT executed by me — repair of the user's repo is outside every agent's charter):** 1) check iCloud (System Settings → Apple ID → iCloud → drive/Desktop & Documents sync — dataless files usually recover via `brctl download <path>` per file or letting sync settle); 2) Disk Utility First Aid on the volume + reboot if persists; 3) once reads return content, run `git fsck` in the parent — file sizes/mtimes are intact, so content is expected to be recoverable, but treat the parent `.git` as suspect until fsck passes. The user's uncommitted work exists as on-disk files; nothing was deleted by any agent.
+
+**Scope check (Observed):** `video-editor/` (canonical repo) is HEALTHY — builds, commits, reads all normal; all Phase-1–4 lanes and the walkthrough are UNAFFECTED. Only the parent-repo archive docs + the user's Flutter-project git metadata are hit.

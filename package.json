@@ -16,6 +16,8 @@
     "test": "npm run verify:timebase && npm run build && npm run test --workspaces --if-present",
     "verify:timebase": "node scripts/verify-timebase.mjs",
     "verify:export": "node scripts/export-e2e.mjs",
+    "verify:app-smoke": "node scripts/app-smoke-e2e.mjs",
+    "fix:electron": "node scripts/fix-electron-install.mjs",
     "demo": "npm run build -w @ve/engine && node packages/engine/dist/cli.js demo ./demo-output"
   },
   "devDependencies": {

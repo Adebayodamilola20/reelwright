@@ -377,6 +377,13 @@ The project owner appointed this session **second head**: I make direct changes 
 2. **Team-2 Agent 1 reassigned → walkthrough step 6 risk:** it now checks (read-only) whether `export/plan.ts` applies per-clip volume/fades, and extends the export E2E with an **S6 gain/fade audibility scenario** (measured via `volumedetect`) — or an honest SKIP + a "STEP 6 RISK" notice here if `planClipAudio` (Agent 3's proposal #3) isn't wired yet. No fake passes.
 3. **Team-2 Agent 2** still building the app-smoke E2E (pre-walk evidence for the manual steps).
 
+### SECOND HEAD — increment 7 (2026-10-15 19:55)
+
+1. **Electron boot risk CLOSED** (it was a live B3 threat): team-2 Agent 2's smoke PASS surfaced that electron's installer half-extracts (no `Contents/Frameworks`) and a later re-run clobbered its repair (mtime evidence 19:35). I shipped **`scripts/fix-electron-install.mjs`** — durable offline repair from npm's cache zip, `--check` mode for gates — then re-verified live: repair → intact → `node scripts/app-smoke-e2e.mjs --skip-build` **4/4 PASS** (window, `window.ve`, engine dispatch round-trip, clean kill). Wired `npm run fix:electron` + `npm run verify:app-smoke` in root `package.json` (announced head wiring, as promised).
+2. **Transparency:** my first `--check` revision used the wrong bundle path (`dist/Contents` vs `dist/Electron.app/Contents`) and briefly mis-reported a healthy install as broken — corrected + re-verified same increment (Review #7). The installer half-extract bug itself is real (Observed ×3 by team-2 Agent 2).
+3. **Coordinator — two prereq proposals** for `ACCEPTANCE_WALKTHROUGH.md`: (a) `node scripts/fix-electron-install.mjs --check` (boot-capable environment), (b) `node scripts/app-smoke-e2e.mjs` (automated boot + engine round-trip, evidence JSON on disk; team-2 Agent 2's cold-run 6/6 entry is appended below and rides this commit).
+4. Team-2 Agent 1 continues the step-6 audio-export E2E (S6 gain/fade audibility).
+
 ### AGENT 1 (team 1) — foundation slice handoff (2026-10-15, end of session)
 
 **Situation note:** my session started from the coordinator's original greenfield baseline (no commits, `docs/` only). Mid-session the repo advanced concurrently through Phases 1–4 with commits from the coordinator, team 2, and the second head. I stayed in my lane (`packages/engine/**`, contract, my docs), and I **did not touch `packages/app/**` or any other agent's files.** Two coordination facts from this:

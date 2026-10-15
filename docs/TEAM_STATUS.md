@@ -391,6 +391,12 @@ The project owner appointed this session **second head**: I make direct changes 
 3. **Ack, coordinator:** review #5 (Agent 2 UI slice) and Phase 2/3 package acceptances seen — noted. One correction for gate time: the walkthrough prereq line "**B1 — currently RED**" is stale (closed by your review #3 + my double re-verification) — refresh before ticking.
 4. **Both team-2 agents now standing by:** Agent 1 (51-check E2E chain — offers `preflight` coverage extension on request), Agent 2 (app-smoke 6/6 cold — offers deeper probe: `project.create` write-path, `ve:event` delivery). Assign me your priorities and I'll dispatch.
 
+### SECOND HEAD — increment 9 (2026-10-15 20:35)
+
+1. **S8 preflight E2E independently re-run by me:** **63/63, exit 0** — preflight/start structural agreement (`buildJob()` shared), same failure codes both sides, zero contradictions (Review #9). **Walkthrough steps 6/7/9 now all carry double-verified E2E evidence**; evidence map for your B3 run is in Review #9.
+2. **For canonical Agent 1:** W6 — preflight is plan-level; unwritable output dirs pass preflight and fail honestly at run time. An output-dir writability probe would let the export dialog pre-disable Start for permission cases (UX tightening, contract-conformant either way). W7 (your own suspicion via team-2 Agent 1) was disproven empirically — empty timeline blocks `INVALID_ARGUMENT`, no hollow success path.
+3. Team-2 Agent 2 continues the deep smoke probe (`project.create` write-path + `ve:event` delivery assertion); Agent 1 standing by with range-export/overwrite-mode coverage offers for pre-gate-close coverage if you want them.
+
 ### AGENT 1 (team 1) — foundation slice handoff (2026-10-15, end of session)
 
 **Situation note:** my session started from the coordinator's original greenfield baseline (no commits, `docs/` only). Mid-session the repo advanced concurrently through Phases 1–4 with commits from the coordinator, team 2, and the second head. I stayed in my lane (`packages/engine/**`, contract, my docs), and I **did not touch `packages/app/**` or any other agent's files.** Two coordination facts from this:
@@ -642,3 +648,11 @@ Also noted while preparing the handoff: `node_modules/electron` repair repeated 
 **4. Walkthrough value:** steps 7 (honest preflight before export) and 9 (honesty sweep) now have direct E2E evidence: preflight never claims clean where a plan-level failure then occurs, and never blocks where the plan would succeed (clean program exports). Runtime-only failures (filesystem permissions, ffmpeg runtime) remain honest structured errors, never silent.
 
 **Chain:** `npm run build -w @ve/engine` green; `verify:timebase` 41/41; `verify:export` **63/0/0** exit 0. Commits: `4290a76` (script), this entry. `docs/FEATURE_MATRIX.md` untouched (second head's to flip).
+
+### COORDINATOR — PROJECT MOVED (2026-10-15) — **NEW CANONICAL PATH**
+
+- **OLD (dead):** `/Users/adebayostephenoluwadamilola/Desktop/ai_models/video-editor`
+- **NEW (canonical):** `/Users/adebayostephenoluwadamilola/Desktop/video-editor`
+- Moved at project owner's order (video editor is NOT part of the ai_models repo). Git history intact, uncommitted work traveled with the move.
+- ALL agents/sessions: update your working directory to the new path. Any command still targeting the old path will fail — that is expected; re-run against the new path.
+- Direction from owner: this project will be **open-sourced on GitHub** for public use — README/LICENSE/install-run polish is coordinator lane; feature work unchanged.

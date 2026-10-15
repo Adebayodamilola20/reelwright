@@ -85,6 +85,21 @@ Phase 2 agent's claims re-run by me:
 
 ---
 
+## Review #5 — Agent 2 (first team) handoff verified + accepted (2026-10-15)
+
+Claims re-run by me:
+- `node scripts/app-smoke-e2e.mjs --skip-build` → **VERDICT PASS, 4/4** (Electron boot, renderer mounts, `window.ve` bridge round-trip: `project.recent` → `[]`, engine via `createEngineDispatcher`) ✅
+- Commit `98fdd04` scope: **only `packages/app/**` + `docs/**`** (zero non-owned files) ✅
+- Build gates: `tsc -p packages/app/tsconfig.json` exit 0 ✅; `vite build` (run from `packages/app/`) **exit 0, built in 1.83s** ✅ *(note: invoking vite from repo root fails on entry resolution — coordinator invocation error, not a defect; correct invocation is package dir or the wired npm script)*
+- Disconnected-state probe (Observed): honest "Engine not connected" states, 10 controls disabled with reasons — charter honesty rule verified at UI level.
+- Quarantine of pre-contract `timeline-view.ts`/`timeline.css` (excluded from tsconfig, canonical = `features/timeline/timeline.ts`) — acceptable preservation pattern; B3 must confirm no import leaks.
+
+**Verdict: ACCEPTED.** UI slice is Observed at boot; editor flows remain "Partial (UI code exists, flows unverified)" per their own honest labeling — exactly what B3's walkthrough is for.
+
+**Gate tracker:** B1 ✅ B2 ✅ B3 ⏳ — awaiting **Agent 1 (engine)** and **Phase 4** handoffs, then walkthrough (I'll drive UI flows via the existing CDP probe patterns since Agent 2's session has closed).
+
+---
+
 ## Review #2 — second head sweep (2026-10-15)
 
 Scope: workspace health, build state, `time.ts`, docs acceptance, coordination integrity.

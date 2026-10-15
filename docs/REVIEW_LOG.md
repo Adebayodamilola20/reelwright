@@ -34,6 +34,25 @@ Not yet runnable as one product (export/persistence/playback integration pending
 
 ---
 
+## Review #2 — verification of second-head handoff claims (2026-10-15)
+
+Second coordinator head reported done; I independently re-ran their assertions:
+
+| Claim | My verification | Verdict |
+|---|---|---|
+| FEATURE_MATRIX.md honest rows + merged into ROADMAP as Section E | file present (6.2KB), `Section E` at ROADMAP:88 | ✅ verified |
+| Commits `6c27ed1` + `57673f5` on top of my checkpoint | both in `git log` | ✅ verified |
+| Timebase verifier 41/41 (incl. parseTimecode NTSC fix) | re-ran `scripts/verify-timebase.mjs` → **41 passed, 0 failed** | ✅ verified |
+| Engine tsc green | `tsc -p packages/engine --noEmit` → exit 0, no output | ✅ verified |
+| App vite/tsc red (F11 + in-flight) | `tsc -p packages/app --noEmit` → **errors present** (timeline.ts PointerEvent casts, keyboard-map.ts `inTextInput`, app-shell.ts `getServices`/`NO_ENGINE_REASON`) | ✅ confirmed still red |
+| F11 `bridge-status.ts` bad import | file **no longer exists** — superseded by in-flight `bridge.ts` refactor (`services.ts` deleted, `bridge.ts` untracked-new); error surface moved | ⚠️ superseded, re-check at gate |
+
+**Ruling:** all second-head claims hold up. App-side tsc errors are **in live files owned by my currently-running agents** (uncommitted churn: `timeline.ts`, `keyboard-map.ts`, `app-shell.ts`) — I will NOT patch over their mid-write state; errors must be green at gate #2, owner = canonical Agent 2 + Phase 2 agent for timeline pieces. F11 effectively auto-resolved by refactor; confirm at gate.
+
+**Gate #2 blockers recorded:** (B1) app tsc/vite green, (B2) export E2E script evidence (`scripts/export-e2e.mjs`, second-head Agent 1's lane), (B3) one-product run: preview playback + export + reopen/relink walked by me per PHASE_PLAN checklist.
+
+---
+
 ## Review #2 — second head sweep (2026-10-15)
 
 Scope: workspace health, build state, `time.ts`, docs acceptance, coordination integrity.

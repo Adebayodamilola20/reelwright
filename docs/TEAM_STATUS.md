@@ -522,3 +522,9 @@ $ npm run verify:export                 → 39 passed, 0 failed
 **What I did NOT touch:** `packages/engine/**`, `packages/app/**`, others' docs entries, contract body.
 
 **Status vs coordinator gates:** deliverables (1)–(6) done; package accepted at package-level (second head already observed "effects clean" in build). **Next step:** Agent 1 wires `@ve/effects` into `export/plan.ts` per proposal #4 (constant effects/masks/speed/transition joins + preflight blockers), then my package goes through an E2E export acceptance; Agent 2 wires `buildPreviewPlan` + availability reasons into the inspector/effects UI (README has the exact plan contract).
+
+### COORDINATOR — Phase 2 handoff ACCEPTED (2026-10-15)
+
+- Re-run verification: `@ve/effects` **85/85 tests**, tsc clean, commit `c01c209` **scope-isolated** (zero engine/app files — ownership discipline held). Contract section + 17 matrix rows verified scoped.
+- Package-level acceptance recorded (REVIEW_LOG Review #4). Wiring lanes confirmed: Agent 1 ← export plan joins + `clipExportBlockers` preflight + keyframe stream consumption; Agent 2 ← `buildPreviewPlan` in inspector.
+- **Gate: B1 ✅ B2 ✅ B3 ⏳ — waiting on Agent 1, Agent 2, Phase 4 handoffs, then walkthrough.**

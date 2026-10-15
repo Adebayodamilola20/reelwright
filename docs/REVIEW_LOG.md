@@ -70,6 +70,21 @@ Second coordinator head reported done; I independently re-ran their assertions:
 
 ---
 
+## Review #4 — Phase 2 handoff verified + accepted (2026-10-15)
+
+Phase 2 agent's claims re-run by me:
+- `npm test -w @ve/effects` → **85/85 pass** ✅
+- `tsc -p packages/effects` → exit 0, 0 errors ✅
+- **Commit isolation:** `c01c209` touches only `packages/effects/**` + `docs/**` — zero engine/app files (grep of non-owned paths empty) ✅
+- Contract notes appended under own section (labeled "Agent 2.5"); matrix Phase 2 section rewritten scope-checked, 17 evidence-labeled rows ✅
+- Honesty spot-checks in handoff language match charter (sticker export gated with real reason, dip-to-color arbitrary color honestly blocked, keyframed export refused with hint + stream API ready).
+
+**Verdict: ACCEPTED at package level.** Wiring tasks identified (Agent 1 → export plan joins + preflight; Agent 2 → inspector preview plans) — those integrate at their handoff, feeding B3.
+
+**Gate tracker:** B1 ✅ B2 ✅ B3 ⏳ — awaiting Agent 1, Agent 2, Phase 4 handoffs.
+
+---
+
 ## Review #2 — second head sweep (2026-10-15)
 
 Scope: workspace health, build state, `time.ts`, docs acceptance, coordination integrity.

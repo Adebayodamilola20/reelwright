@@ -1,0 +1,22 @@
+{
+  "name": "video-editor",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Original local-first video editor (working name; product identity TBD).",
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run build && npm run test --workspaces --if-present",
+    "demo": "npm run build -w @ve/engine && node packages/engine/dist/cli.js demo"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  }
+}

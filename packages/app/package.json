@@ -1,0 +1,28 @@
+{
+  "name": "@ve/app",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Reelwright desktop shell + UI: Electron main/preload/renderer (Agent 2).",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/electron/main.js",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit",
+    "build": "npm run build:ui && npm run build:electron",
+    "build:ui": "vite build",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "dev": "vite",
+    "start": "electron .",
+    "smoke": "electron . --smoke"
+  },
+  "dependencies": {
+    "@ve/engine": "*"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0",
+    "vite": "^7.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

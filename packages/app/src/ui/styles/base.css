@@ -1,0 +1,127 @@
+/* Reelwright base stylesheet — reset, element defaults, shared utilities. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--rw-bg);
+  color: var(--rw-text);
+  font-family: var(--rw-font);
+  font-size: var(--rw-fs-md);
+  line-height: var(--rw-lh-normal);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden; /* app shell manages its own scrolling regions */
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 600;
+  line-height: var(--rw-lh-tight);
+}
+
+h1 { font-size: var(--rw-fs-2xl); }
+h2 { font-size: var(--rw-fs-xl); }
+h3 { font-size: var(--rw-fs-lg); }
+h4 { font-size: var(--rw-fs-md); }
+
+p { margin: 0 0 var(--rw-space-3); }
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* ---- Focus: keyboard-visible only, high contrast ---- */
+:focus {
+  outline: none;
+}
+:focus-visible {
+  outline: none;
+  box-shadow: var(--rw-focus-ring);
+  border-radius: var(--rw-radius-sm);
+}
+
+/* ---- Scrollbars ---- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--rw-border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--rw-border-strong);
+  border-radius: var(--rw-radius-pill);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--rw-text-faint);
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---- Utilities ---- */
+
+/* Visually hidden but screen-reader accessible */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Skip link: hidden until focused */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: var(--rw-space-2);
+  z-index: var(--rw-z-toast);
+  padding: var(--rw-space-2) var(--rw-space-3);
+  background: var(--rw-accent);
+  color: var(--rw-accent-contrast);
+  border-radius: var(--rw-radius-md);
+  text-decoration: none;
+  transition: top var(--rw-dur-fast) var(--rw-ease);
+}
+.skip-link:focus-visible {
+  top: var(--rw-space-2);
+}
+
+.mono {
+  font-family: var(--rw-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.dim { color: var(--rw-text-dim); }
+.faint { color: var(--rw-text-faint); }
+
+/* Any element marked disabled is inert and honestly styled */
+[disabled],
+[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}

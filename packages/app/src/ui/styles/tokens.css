@@ -1,0 +1,133 @@
+/*
+ * Reelwright design tokens — single source of truth for the UI visual language.
+ * Original identity; do not copy proprietary palettes.
+ *
+ * Dark theme is the default (editor convention). A light theme may be added
+ * later by overriding the same custom properties under [data-theme="light"].
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* ---- Brand / accent ---- */
+  --rw-accent: #5b8cff;          /* primary action, selection */
+  --rw-accent-hover: #7aa1ff;
+  --rw-accent-active: #4578f2;
+  --rw-accent-contrast: #ffffff;
+  --rw-accent-soft: rgb(91 140 255 / 0.16);
+
+  --rw-success: #3ecf8e;
+  --rw-success-soft: rgb(62 207 142 / 0.16);
+  --rw-warning: #f5b544;
+  --rw-warning-soft: rgb(245 181 68 / 0.16);
+  --rw-danger: #ff6b6b;
+  --rw-danger-soft: rgb(255 107 107 / 0.16);
+
+  /* ---- Surfaces (layered: bg grows lighter as it comes forward) ---- */
+  --rw-bg: #0e1013;              /* app background */
+  --rw-surface-0: #14171c;       /* panels: media bin, inspector */
+  --rw-surface-1: #1a1e25;       /* raised panels, dialogs */
+  --rw-surface-2: #232830;       /* toolbars, headers */
+  --rw-surface-3: #2d333d;       /* hovers, wells */
+  --rw-canvas: #06070a;          /* preview letterbox, timeline empty space */
+
+  /* ---- Text ---- */
+  --rw-text: #e8eaee;            /* primary */
+  --rw-text-dim: #9aa3b2;        /* secondary */
+  --rw-text-faint: #6b7381;      /* tertiary, hints, disabled */
+  --rw-text-inverse: #10131a;
+
+  /* ---- Lines ---- */
+  --rw-border: #2a303a;
+  --rw-border-strong: #3a424f;
+  --rw-divider: rgb(255 255 255 / 0.06);
+
+  /* ---- Timeline-specific ---- */
+  --rw-track-bg: #171b21;
+  --rw-track-alt: #1b2028;
+  --rw-clip-video: #2f4b8c;
+  --rw-clip-video-border: #4a6ec2;
+  --rw-clip-audio: #1f6b4f;
+  --rw-clip-audio-border: #2f9a72;
+  --rw-clip-text: #7a4bbf;
+  --rw-clip-text-border: #9a6ae0;
+  --rw-clip-image: #8a6b2f;
+  --rw-clip-image-border: #b08c43;
+  --rw-clip-selected: rgb(91 140 255 / 0.22);
+  --rw-playhead: #ff4d6d;
+  --rw-waveform: rgb(255 255 255 / 0.55);
+  --rw-ruler-tick: #4a5261;
+  --rw-snapline: #ffd166;
+
+  /* ---- Spacing scale (4px base) ---- */
+  --rw-space-1: 4px;
+  --rw-space-2: 8px;
+  --rw-space-3: 12px;
+  --rw-space-4: 16px;
+  --rw-space-5: 24px;
+  --rw-space-6: 32px;
+  --rw-space-7: 48px;
+
+  /* ---- Radii ---- */
+  --rw-radius-sm: 4px;
+  --rw-radius-md: 8px;
+  --rw-radius-lg: 12px;
+  --rw-radius-pill: 999px;
+
+  /* ---- Typography ---- */
+  --rw-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+  --rw-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --rw-fs-xs: 11px;
+  --rw-fs-sm: 12px;
+  --rw-fs-md: 13px;
+  --rw-fs-lg: 16px;
+  --rw-fs-xl: 20px;
+  --rw-fs-2xl: 28px;
+  --rw-lh-tight: 1.25;
+  --rw-lh-normal: 1.5;
+
+  /* ---- Elevation ---- */
+  --rw-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --rw-shadow-md: 0 4px 16px rgb(0 0 0 / 0.45);
+  --rw-shadow-lg: 0 12px 40px rgb(0 0 0 / 0.55);
+
+  /* ---- Motion ---- */
+  --rw-dur-fast: 90ms;
+  --rw-dur-med: 180ms;
+  --rw-dur-slow: 320ms;
+  --rw-ease: cubic-bezier(0.2, 0, 0.13, 1.15); /* slight overshoot */
+
+  /* ---- Z layers ---- */
+  --rw-z-timeline-overlay: 10;
+  --rw-z-dropdown: 100;
+  --rw-z-dialog-backdrop: 500;
+  --rw-z-dialog: 510;
+  --rw-z-toast: 600;
+
+  /* ---- Focus ring (accessibility) ---- */
+  --rw-focus-ring: 0 0 0 2px var(--rw-bg), 0 0 0 4px var(--rw-accent);
+
+  /* ---- Fixed component sizes ---- */
+  --rw-toolbar-h: 44px;
+  --rw-statusbar-h: 26px;
+  --rw-timeline-header-w: 176px;
+  --rw-timeline-ruler-h: 28px;
+  --rw-panel-min-w: 220px;
+}
+
+/* Light theme override (planned — marked as Designed, not yet shipped) */
+[data-theme="light"] {
+  color-scheme: light;
+  --rw-bg: #f4f5f7;
+  --rw-surface-0: #ffffff;
+  --rw-surface-1: #ffffff;
+  --rw-surface-2: #eceef1;
+  --rw-surface-3: #dfe3e8;
+  --rw-canvas: #2a2d33;
+  --rw-text: #14171c;
+  --rw-text-dim: #4b5563;
+  --rw-text-faint: #7b8494;
+  --rw-border: #d7dbe2;
+  --rw-border-strong: #b9c0cb;
+}

@@ -26,6 +26,12 @@
  *                      this scenario becomes an honest SKIP, never a fake pass.)
  *   S7 audio containers (bonus) — wav (pcm_s16le, lossless level check) and
  *                      mp3 (44.1k→48k resampled) audio-only round-trips
+ *   S8 preflight consistency (walkthrough steps 7/9) — exportMedia.preflight
+ *                      must agree with exportMedia.start: clean ⇔ run-clean,
+ *                      blocked ⇒ start fails with the same code. Contradiction
+ *                      assertions on missing asset, text-without-freetype,
+ *                      empty timeline, and unwritable output dir (documented
+ *                      plan-level scope: I/O failures surface at run time).
  *
  * Usage:  npm run verify:export          (or: node scripts/export-e2e.mjs)
  * Requires: npm run build -w @ve/engine   and ffmpeg/ffprobe on PATH.
@@ -724,6 +730,194 @@ async function s7() {
   }
 }
 
+// ================== S8: preflight consistency (walkthrough steps 7/9)
+const S8SET = {
+  width: 320, height: 240, frameRate: { n: 30, d: 1 },
+  sampleRate: 48000, channels: 2, background: '#000000',
+};
+const s8opt = (out) => ({
+  outputPath: out, container: 'mp4',
+  video: { codec: 'h264', quality: 'draft' }, audio: { codec: 'aac' },
+});
+
+async function s8() {
+  const SC = 'S8 preflight consistency (steps 7/9)';
+  console.log(`\n=== ${SC} ===`);
+  const tmp = mkdtempSync(join(tmpdir(), 've-e2e-s8-'));
+
+  // --- A) clean program: preflight clean AND export succeeds ---
+  {
+    const engine = newEngine(tmp);
+    try {
+      const { dir, videoTrack, audioTrack } = await makeProject(engine, tmp, 'e2e-s8-clean', S8SET);
+      const imp = await engine.assets.import([join(FIXTURES, 'bars-tone.mp4'), join(FIXTURES, 'tone-48k.wav')]);
+      await engine.timeline.addClip({ trackId: videoTrack.id, assetId: imp.imported[0].id, start: 0 });
+      await engine.timeline.addClip({ trackId: audioTrack.id, assetId: imp.imported[1].id, start: 0 });
+      const out = join(dir, 'out.mp4');
+      const pre = await engine.exportMedia.preflight(s8opt(out));
+      record(SC, 'clean program: preflight reports no blockers',
+        Array.isArray(pre.blockers) && pre.blockers.length === 0,
+        `blockers=[${(pre.blockers ?? []).map((b) => b.code).join(',')}]`);
+      record(SC, 'preflight durationTicks = exact program length (2 s)',
+        pre.durationTicks === 2 * SEC,
+        `${pre.durationTicks} ticks (${pre.durationTicks !== undefined ? (pre.durationTicks / SEC).toFixed(3) : 'undefined'} s)`);
+      const r = await runExport(engine, s8opt(out), 90_000);
+      record(SC, 'consistency: preflight-clean program exports successfully',
+        r.terminal === 'done' && existsSync(out), `terminal=${r.terminal}`);
+    } catch (e) {
+      record(SC, 'scenario A ran without exception', false, String(e?.stack || e));
+    } finally {
+      engine.dispose();
+    }
+  }
+
+  // --- B) missing asset: preflight blocks ASSET_MISSING; start predicts same code ---
+  {
+    const engine = newEngine(tmp);
+    try {
+      const { dir, videoTrack } = await makeProject(engine, tmp, 'e2e-s8-missing', S8SET);
+      const src = join(dir, 'source.mp4');
+      copyFileSync(join(FIXTURES, 'bars-tone.mp4'), src);
+      const imp = await engine.assets.import([src]);
+      await engine.timeline.addClip({ trackId: videoTrack.id, assetId: imp.imported[0].id, start: 0 });
+      rmSync(src);
+      const out = join(dir, 'out.mp4');
+      const pre = await engine.exportMedia.preflight(s8opt(out));
+      record(SC, 'missing asset: preflight blocks with ASSET_MISSING',
+        pre.blockers.length === 1 && pre.blockers[0].code === 'ASSET_MISSING',
+        `blockers=[${pre.blockers.map((b) => b.code).join(',')}]`);
+      record(SC, 'missing-asset blocker: readable message + hint (no stack)',
+        pre.blockers.every((b) => hasNoStack(b.message) && typeof b.hint === 'string' && b.hint.length > 5),
+        JSON.stringify(pre.blockers[0] ?? null).slice(0, 160));
+      let caught = null;
+      try { await engine.exportMedia.start(s8opt(out)); } catch (e) { caught = e; }
+      record(SC, 'prediction holds: start rejects with the same code (no encode spawned)',
+        caught?.code === 'ASSET_MISSING' && caught?.code === pre.blockers[0]?.code,
+        `preflight=${pre.blockers[0]?.code} start=${caught?.code}`);
+    } catch (e) {
+      record(SC, 'scenario B ran without exception', false, String(e?.stack || e));
+    } finally {
+      engine.dispose();
+    }
+  }
+
+  // --- C) text burn-in without freetype: preflight blocks; start predicts same code ---
+  {
+    const engine = newEngine(tmp);
+    try {
+      const { dir, videoTrack } = await makeProject(engine, tmp, 'e2e-s8-text', S8SET);
+      const imp = await engine.assets.import([join(FIXTURES, 'bars-tone.mp4')]);
+      await engine.timeline.addClip({ trackId: videoTrack.id, assetId: imp.imported[0].id, start: 0 });
+      await engine.timeline.addTextClip({ trackId: videoTrack.id, start: 2 * SEC, duration: 1 * SEC, text: 'Caption' });
+      const caps = await engine.exportMedia.capabilities();
+      if (caps.textBurnIn) {
+        skip(SC, 'text-gate preflight checks', 'local ffmpeg has drawtext — gate not exercisable here');
+      } else {
+        const out = join(dir, 'out.mp4');
+        const pre = await engine.exportMedia.preflight(s8opt(out));
+        record(SC, 'text gate: preflight blocks with UNSUPPORTED_FEATURE',
+          pre.blockers.length === 1 && pre.blockers[0].code === 'UNSUPPORTED_FEATURE',
+          `blockers=[${pre.blockers.map((b) => b.code).join(',')}]`);
+        record(SC, 'text blocker hint names the fix (freetype/drawtext/remove text)',
+          typeof pre.blockers[0]?.hint === 'string' && /freetype|drawtext|remove text/i.test(pre.blockers[0].hint),
+          JSON.stringify(pre.blockers[0]?.hint ?? ''));
+        let caught = null;
+        try { await engine.exportMedia.start(s8opt(out)); } catch (e) { caught = e; }
+        record(SC, 'prediction holds: start rejects with the same code (no encode spawned)',
+          caught?.code === 'UNSUPPORTED_FEATURE' && caught?.code === pre.blockers[0]?.code,
+          `preflight=${pre.blockers[0]?.code} start=${caught?.code}`);
+      }
+    } catch (e) {
+      record(SC, 'scenario C ran without exception', false, String(e?.stack || e));
+    } finally {
+      engine.dispose();
+    }
+  }
+
+  // --- D) empty timeline: is the zero-duration program caught at preflight? ---
+  {
+    const engine = newEngine(tmp);
+    try {
+      const { dir } = await makeProject(engine, tmp, 'e2e-s8-empty', S8SET);
+      const out = join(dir, 'out.mp4');
+      const pre = await engine.exportMedia.preflight(s8opt(out));
+      info(SC, 'empty timeline preflight outcome',
+        `blockers=[${pre.blockers.map((b) => b.code).join(',')}] durationTicks=${pre.durationTicks}`);
+      if (pre.blockers.length > 0) {
+        record(SC, 'empty timeline: preflight blocks (plan-level detectable)',
+          typeof pre.blockers[0].code === 'string' && hasNoStack(pre.blockers[0].message),
+          `code=${pre.blockers[0].code}`);
+        let caught = null;
+        try { await engine.exportMedia.start(s8opt(out)); } catch (e) { caught = e; }
+        record(SC, 'prediction holds: start rejects with the same code',
+          caught?.code === pre.blockers[0]?.code,
+          `preflight=${pre.blockers[0]?.code} start=${caught?.code}`);
+      } else {
+        // Preflight says clean — the run must be structured and honest either way.
+        const r = await runExport(engine, s8opt(out), 60_000);
+        const structured = r.terminal === 'done'
+          || (r.terminal === 'error' && typeof r.error?.error?.code === 'string' && hasNoStack(r.error.error.message));
+        let probeNote = '';
+        if (r.terminal === 'done' && existsSync(out)) {
+          const p = ffprobe(out);
+          probeNote = p.error
+            ? ` — OUTPUT UNPARSEABLE by ffprobe: ${p.error.slice(0, 80)}`
+            : ` — streams=${(p.streams || []).length} duration=${p.format?.duration}`;
+        }
+        const hollowSuccess = r.terminal === 'done' && ffprobe(out).error !== undefined;
+        record(SC, 'empty timeline: run outcome structured & honest (no crash/hang/orphan)',
+          structured && !hollowSuccess,
+          `terminal=${r.terminal}${r.error ? ` code=${r.error.error.code}` : ''} file=${existsSync(out) ? `${statSync(out).size} B` : 'absent'}${probeNote}${hollowSuccess ? ' — hollow file presented as success (advisory W7)' : ''}`);
+      }
+    } catch (e) {
+      record(SC, 'scenario D ran without exception', false, String(e?.stack || e));
+    } finally {
+      engine.dispose();
+    }
+  }
+
+  // --- E) unwritable output dir: preflight scope is plan-level (W6 advisory) ---
+  {
+    const engine = newEngine(tmp);
+    const locked = join(tmp, 'e2e-s8-locked');
+    try {
+      const { dir, videoTrack } = await makeProject(engine, tmp, 'e2e-s8-unwritable', S8SET);
+      const imp = await engine.assets.import([join(FIXTURES, 'bars-tone.mp4')]);
+      await engine.timeline.addClip({ trackId: videoTrack.id, assetId: imp.imported[0].id, start: 0 });
+      mkdirSync(locked, { recursive: true });
+      chmodSync(locked, 0o555);
+      const out = join(locked, 'out.mp4');
+      const pre = await engine.exportMedia.preflight(s8opt(out));
+      info(SC, 'unwritable-dir preflight (contract scope: plan-level blockers)',
+        `blockers=[${pre.blockers.map((b) => b.code).join(',')}]`);
+      if (pre.blockers.length > 0) {
+        // Preflight DOES catch it — then start must agree.
+        let caught = null;
+        try { await engine.exportMedia.start(s8opt(out)); } catch (e) { caught = e; }
+        record(SC, 'unwritable dir: preflight blocks; start agrees',
+          caught?.code === pre.blockers[0]?.code,
+          `preflight=${pre.blockers[0]?.code} start=${caught?.code}`);
+      } else {
+        // Documented scope: plan-level dry-run cannot see filesystem permissions.
+        // The honest fallback is a structured RUNTIME error (never silent).
+        const r = await runExport(engine, s8opt(out), 60_000);
+        const honest = r.terminal === 'error'
+          && typeof r.error?.error?.code === 'string'
+          && hasNoStack(r.error.error.message)
+          && !existsSync(out);
+        record(SC, 'unwritable dir: preflight clean (I/O beyond plan scope) but run fails honestly & structured',
+          honest,
+          `terminal=${r.terminal} code=${r.error?.error?.code} hint=${JSON.stringify(String(r.error?.error?.hint ?? '').slice(0, 70))} — W6: preflight could probe output-dir writability`);
+      }
+    } catch (e) {
+      record(SC, 'scenario E ran without exception', false, String(e?.stack || e));
+    } finally {
+      try { chmodSync(locked, 0o755); } catch { /* may not exist */ }
+      engine.dispose();
+    }
+  }
+}
+
 // ================================================================== main
 console.log('export-e2e — Phase-1 export acceptance evidence');
 console.log(`root: ${ROOT}`);
@@ -735,6 +929,7 @@ await s4();
 await s5();
 await s6();
 await s7();
+await s8();
 
 console.log(`\n=== SUMMARY: ${passCount} passed, ${skipCount} skipped, ${failCount} failed ===`);
 try {

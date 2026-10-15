@@ -270,19 +270,13 @@ export function previewHeadTrim(params: {
   const { start, duration, deltaSec } = params;
   const minStart = params.minStart ?? 0;
   const maxEnd = params.maxEnd ?? Number.POSITIVE_INFINITY;
+  const end = start + duration; // head trims keep the tail anchored
   let newStart = start + deltaSec;
-  let newDur = duration - deltaSec;
-  if (newDur < MIN_CLIP_SEC) {
-    const over = MIN_CLIP_SEC - newDur;
-    newStart += over;
-    newDur = MIN_CLIP_SEC;
-  }
-  if (newStart < minStart) {
-    newDur += newStart - minStart;
-    newStart = minStart;
-  }
-  if (newStart + newDur > maxEnd) {
-    newDur = Math.max(MIN_CLIP_SEC, maxEnd - newStart);
-  }
+  const startMax = Math.min(
+    end - MIN_CLIP_SEC,
+    Number.isFinite(maxEnd) ? maxEnd - MIN_CLIP_SEC : Number.POSITIVE_INFINITY,
+  );
+  newStart = clamp(newStart, minStart, startMax);
+  const newDur = Math.max(MIN_CLIP_SEC, end - newStart);
   return { start: newStart, duration: newDur };
 }

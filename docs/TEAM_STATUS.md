@@ -535,3 +535,38 @@ $ npm run verify:export                 → 39 passed, 0 failed
 - Re-run verification: `@ve/effects` **85/85 tests**, tsc clean, commit `c01c209` **scope-isolated** (zero engine/app files — ownership discipline held). Contract section + 17 matrix rows verified scoped.
 - Package-level acceptance recorded (REVIEW_LOG Review #4). Wiring lanes confirmed: Agent 1 ← export plan joins + `clipExportBlockers` preflight + keyframe stream consumption; Agent 2 ← `buildPreviewPlan` in inspector.
 - **Gate: B1 ✅ B2 ✅ B3 ⏳ — waiting on Agent 1, Agent 2, Phase 4 handoffs, then walkthrough.**
+
+---
+
+### Agent 2 (first team, `ses_ebfa947f6ffex3E73GUjSiL8Dk`) — ANNOUNCE-THEN-EDIT: FEATURE_MATRIX Phase 1 UI slice (2026-10-15)
+
+Claiming a **new subsection `### Phase 1 UI slice — Agent 2 (first team)`** in `docs/FEATURE_MATRIX.md`, inserted directly after the Phase 1 table. Adding rows only — no other section, no other agent's rows, no status flips elsewhere. Rows to land (12): app shell/routing · engine bridge + honest fallback · home/library · honest disconnected/empty states · editor layout (5 panes) · media bin · preview monitor (UI-owned playhead v1, contract note 1) · multitrack timeline (canonical `features/timeline/timeline.ts`) · inspector · toolbar+shared commands · export dialog · app build gates.
+
+Evidence I will cite (all Observed today, this machine): **`node scripts/app-smoke-e2e.mjs --skip-build` → VERDICT PASS 4/4** (`SMOKE_REPORT {hasVe:true, hasInvoke:true, hasOn:true, title:"Reelwright"}` + engine round-trip `invoke('project.recent') → []`, evidence JSON at `demo-output/app-smoke-evidence.json`); **disconnected-state probe** (Electron loads the built UI *without* preload → home shows "Engine not connected / Running without engine bridge" with `＋ New project` disabled; editor shows the read-only banner naming `window.ve` + 10 controls disabled with reasons — undo/redo/Split/duplicate/delete/Import/Text/Save/Export…/＋ Import); **tsc app + electron exit 0, vite build green** (26 modules). Editor editing/preview-playback/export flows stay labeled *Designed / Inferred (unverified)* — no parity or click-through claims.
+
+Also noted while preparing the handoff: `node_modules/electron` repair repeated (second head's `scripts/fix-electron-install.mjs` exists; I additionally had to write `path.txt` **without a trailing newline** — with `echo`'s `\n` the spawn path contains `\n` → ENOENT; `printf` fixes it. Worth checking in that script).
+
+---
+
+### Agent 1 (second team) — WALKTHROUGH STEP 6: integration check + S6/S7 evidence (2026-10-15 20:15)
+
+**1. Integration check (read-only): step-6 audio gain/fades ARE WIRED — no blocker for the walkthrough.**
+- Observed in `packages/engine/src/export/plan.ts` (~lines 319–326): per-clip audio chain (after `atrim`+`asetpts`) applies `volume=<linear>` when ≠1, `afade=t=in:st=0:d=…`, `afade=t=out:st=<dur−d>:d=…` (fade lengths clamped to clip duration); `amix … normalize=0` preserves absolute levels. Canonical Agent 1 implemented this NATIVELY (engine has no `@ve/audio` dependency) — **Agent 3's proposal #3 (`planClipAudio`) is NOT required for step 6**.
+- **W3 (advisory, non-blocking, for canonical Agent 1 + Agent 3):** two gain/fade implementations now coexist. Edge-behavior deltas to reconcile eventually: engine CLAMPS `fadeIn`/`fadeOut` to clip length and overlapping in+out fades compound multiplicatively, vs @ve/audio's documented `INVALID_ARGUMENT` when fade-sum > duration. Happy paths measure identical (below); drift risk is edge inputs only.
+
+**2. S6 evidence — walkthrough step 6 (volume + fade APPLIED in the exported file): 7/7 PASS** (`node scripts/export-e2e.mjs`, ffmpeg 8.1.1; JSON evidence `demo-output/export-e2e-evidence.json`):
+
+| Check | Measurement (volumedetect on delivered mp4) | Result |
+|---|---|---|
+| Gain applied | same tone at unity vs `volume: 0.5`: −21.1 vs −27.1 dB → **Δ=−6.00 dB** (theory −6.02, ±0.5) | PASS |
+| Fade-out applied | 1 s fade on 2 s clip: open middle [0.4–0.9 s] −21.2 dB vs tail [1.6–2.0 s] −34.4 dB → **Δ=−13.20 dB** (linear-fade theory −12.7) | PASS |
+| Fade-in applied | head [0–0.4 s] −33.8 vs steady −21.1 → **Δ=−12.70 dB** (exact theory) | PASS |
+| Export completes for each | terminal `export:done`, output exists — levels measured in the DELIVERED file, not the plan | PASS ×4 |
+
+**3. W4 (methodology finding — my own bug, fixed, documented in code):** demuxer-level `ffmpeg -ss <tail>` on ffmpeg 8.1.1 silently falls back to measuring the WHOLE stream when the seek lands near EOF → first produced a false "fade-out not applied" FAIL. Segment measurement now uses in-filter `aselect='between(t,…)',asetpts=N/SR/TB,volumedetect`. Cross-verified by dumping the engine's exact argv (`buildFfmpegJob` via dist) and reproducing it standalone: the engine's chain yields the same −13.2 dB — **no engine defect; the plan was always correct**.
+
+**4. S2 (cancel) hardening — Observed environment finding:** under concurrent agent load the 1080p cancel program encoded at **fps 0.07, first percent after 62 s** (yesterday's 45 s window starved → false FAIL + near-orphan). Scenario now: 640×360 (full scale/pad/overlay/concat/amix pipeline still exercised), encode-driven 240 s wait, terminal wait 60 s, and **ALWAYS cancels (awaited) even when mid-flight is never observed** so no orphaned ffmpeg can survive a failed run. Cancel semantics re-proven 7/7. Also Observed: `engine.exportMedia.cancel` is facade-async — `Promise<boolean>` (`api.ts:153`, runner sync underneath); E2E awaits.
+
+**5. S7 bonus (offered extension): 5/5 PASS** — audio-only exports: **wav** round-trip (import `tone-48k.wav` → `video:null` → pcm_s16le 48 kHz, dur 1.000 s, **lossless level preserved exactly −21.1 dB**) and **mp3** (`tone-44100.mp3` imported → 44.1k→48k resampled per project rate, libmp3lame, dur 1.000 s). `-vn` audio-only path verified.
+
+**Chain status:** `verify:timebase` **41/41**; `export-e2e` **51 passed / 0 skipped / 0 failed** (honest-skip infrastructure added per charter; 0 skips because the wiring is present); `npm run build -w @ve/engine` green at commit. Commits: `2ea6065` (script), this entry. **Walkthrough step 6 = evidence complete, PASS** — for the coordinator's gate box; matrix rows remain second head's to flip.

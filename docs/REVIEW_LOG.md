@@ -91,3 +91,24 @@ Scope: preview monitor, export dialog, B1 re-verification against the live tree.
 - **E4 (HONESTY, LOW):** transport buttons are never visibly disabled — with no project open, clicks silently no-op. Disable + reason in `title` when state is null.
 - **E5 (cosmetic, LOW):** `export-dialog.ts` preflight ternary branches are logically identical (`A && B` vs `B && A`).
 - **E6 (LOW):** cancel clicked during the indeterminate "Starting export…" phase no-ops until `exportId` resolves — button shown but briefly dead.
+
+---
+
+## Review #4 — second head timeline pass (2026-10-15 18:55)
+
+Scope: `timeline.ts` (536 lines — walkthrough steps 3–4 surface), `state.ts` read-verified.
+
+### Fixed by second head (announced, TEAM_STATUS increment 4)
+
+- **T1 (UX, MEDIUM — fixed):** `snapForMove()` tail-snap measured the wrong distance — candidates were pre-mapped by `-dur` and then compared against `to + dur`, yielding `|c − to − 2·dur|` instead of `|c − to − dur|`. Effect: dragging a clip so its head reached `c − 2·dur` triggered a phantom snap that **jumped the clip to `c − dur`** (up to a full clip-length away), while genuine tail alignments at `c − dur` were missed. Fixed: snap raw candidates against the tail position, derive `to = value − dur`, with a `≥ 0` guard. **Consolidation note for canonical Agent 2:** the tested, correct implementation already exists in `timeline-math.ts` → `snapClipStart()` (14 green tests, incl. head/tail edges) — delegate to it when you next touch this file rather than maintaining two snapping copies.
+- **T2 (cosmetic — fixed):** `rw-tl__clip--ghosting` drop-affordance class was only ever added — stale when the pointer returned to the original/invalid lane mid-drag; now cleared in the else branch.
+
+### Verified clean (read review, no action)
+
+- `state.ts`: `setPlayhead` clamps to `[0, programEndTicks]` (no negative playhead from off-left scrub); `frameFloorSafe` NTSC-correct; zoom clamped `[8, 800]`; selection pruning on snapshot refresh; batched-undo wiring (`history.beginBatch/endBatch` around drags) matches contract §Undo/redo.
+- `timeline.ts`: every mutation goes through the engine (`timeline.*`, never direct data edits); locked tracks block edits with notice; honest empty states; drag-drop from media-bin with track-kind matching + auto `addTrack`.
+
+### Open (owner: canonical Agent 2)
+
+- **T3 (LOW):** edge-drag on a locked track returns silently (no `notify`) while the trim handles still render as active — either hide handles on locked tracks or announce the lock like the body-drag path does.
+- **T4 (LOW):** `media-bin.ts` not yet reviewed — next pass.

@@ -354,6 +354,16 @@ The project owner appointed this session **second head**: I make direct changes 
 4. Findings **E3–E6** in `docs/REVIEW_LOG.md` Review #3 — E3 (preview silences audio tracks under video; chip only covers visual layers) needs an honesty-rule call from canonical Agent 2: mix or label.
 5. `scripts/export-e2e.mjs` stays team-2 Agent 1's lane — I see it growing (22 KB); no duplicate work from me.
 
+### SECOND HEAD — increment 4 (2026-10-15 18:55)
+
+**Files touched (announced):** `packages/app/src/ui/features/timeline/timeline.ts`, `docs/REVIEW_LOG.md` (Review #4), this entry. timeline.ts was cold (last write 18:31) when edited; canonical Agent 2's live file was `electron/main.ts` — untouched by me (and your refactor now typechecks green, both configs exit 0 as of 18:55).
+
+1. **T1 fixed — tail-snap phantom jump.** `snapForMove()` measured `|c − to − 2·dur|` instead of `|c − to − dur|`: reaching `c − 2·dur` with the clip head snapped it all the way to `c − dur` (up to a full clip-length jump), and real tail alignments were missed. Fixed with a `≥ 0` guard. Canonical Agent 2: your tested `timeline-math.ts snapClipStart()` already does this correctly — delegate to it when convenient (two snapping copies is how this bug survived).
+2. **T2 fixed** — stale `--ghosting` drop-affordance class mid-drag (never cleared).
+3. **T3/T4 open for you:** locked-track edge-drag is silent while handles look active; `media-bin.ts` review is my next pass.
+4. **Charter branding sweep run by me:** `grep -ri 'capcut|tiktok|bytedance' packages scripts` → **zero hits in source**; docs-only references remain (walkthrough step 9 pre-checked clean).
+5. `state.ts` + `timeline.ts` read-verified clean otherwise (clamps, engine-only mutations, batched undo, honest empties) — details in Review #4.
+
 ### AGENT 1 (team 1) — foundation slice handoff (2026-10-15, end of session)
 
 **Situation note:** my session started from the coordinator's original greenfield baseline (no commits, `docs/` only). Mid-session the repo advanced concurrently through Phases 1–4 with commits from the coordinator, team 2, and the second head. I stayed in my lane (`packages/engine/**`, contract, my docs), and I **did not touch `packages/app/**` or any other agent's files.** Two coordination facts from this:

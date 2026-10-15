@@ -164,9 +164,14 @@ export interface EngineProviderApi {
   status(): Promise<ProviderStatusReport>;
 }
 
-export interface EngineApi extends
-  EngineProjectApi, EngineAssetsApi, EngineTimelineApi,
-  EngineHistoryApi, EngineExportApi, EnginePersistenceApi, EngineProviderApi {
+export interface EngineApi {
+  project: EngineProjectApi;
+  assets: EngineAssetsApi;
+  timeline: EngineTimelineApi;
+  history: EngineHistoryApi;
+  exportMedia: EngineExportApi;
+  persistence: EnginePersistenceApi;
+  providers: EngineProviderApi;
   on<K extends keyof EngineEvents>(event: K, cb: (payload: EngineEvents[K]) => void): () => void;
   /** Generic dispatcher used by the IPC bridge: dispatch('timeline.splitClip', [id, at]). */
   dispatch(method: string, params?: unknown[]): Promise<unknown>;

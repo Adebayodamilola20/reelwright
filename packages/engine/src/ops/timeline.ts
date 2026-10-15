@@ -432,21 +432,18 @@ export function trimClip(draft: ProjectFile, clipId: string, change: TrimClipCha
       fail('INVALID_ARGUMENT', 'Cannot trim before the start of the source media.',
         `Earliest possible head: tick ${clip.start - clip.sourceIn}.`);
     }
+    const oldEnd = clip.start + clip.duration;
+    const delta = to - clip.start;
     if (change.ripple) {
-      const oldEnd = clip.start + clip.duration;
-      const delta = to - clip.start;
       // Later clips follow the head move to stay adjacent.
       for (const c of track.clips) {
         if (c.id !== clip.id && c.start >= oldEnd) c.start += delta;
       }
-      // The head must not slide into the previous clip.
-      clip.start = to;
-      clip.sourceIn = newSourceIn;
-      assertNoOverlaps(track);
-    } else {
-      clip.start = to;
-      clip.sourceIn = newSourceIn;
     }
+    clip.start = to;
+    clip.sourceIn = newSourceIn;
+    clip.duration = oldEnd - to;
+    assertNoOverlaps(track); // head may slide into a previous clip in either mode
   } else {
     if (to <= clip.start) fail('INVALID_ARGUMENT', 'Trim would make the clip empty.');
     const newDuration = to - clip.start;

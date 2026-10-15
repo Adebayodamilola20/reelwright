@@ -13,7 +13,7 @@
  * runs honestly WITHOUT window.ve — every engine control disables with a reason.
  */
 
-import { app, BrowserWindow, ipcMain, dialog } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, type OpenDialogOptions, type SaveDialogOptions } from "electron";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import fs from "node:fs";
@@ -147,7 +147,7 @@ function wireIpc() {
 
   // Native dialogs live app-side (contract review note #7).
   ipcMain.handle("ve:pickFiles", async (_event, kind) => {
-    const result = await dialog.showOpenDialog(win ?? undefined, {
+    const opts: OpenDialogOptions = {
       properties: ["openFile", "multiSelections"],
       ...(kind === "media"
         ? {
@@ -159,22 +159,23 @@ function wireIpc() {
             ],
           }
         : {}),
-    });
+    };
+    const result = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts);
     return result.canceled ? [] : result.filePaths;
   });
 
   ipcMain.handle("ve:pickDirectory", async () => {
-    const result = await dialog.showOpenDialog(win ?? undefined, {
-      properties: ["openDirectory", "createDirectory"],
-    });
+    const opts: OpenDialogOptions = { properties: ["openDirectory", "createDirectory"] };
+    const result = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts);
     return result.canceled ? null : result.filePaths[0] ?? null;
   });
 
   ipcMain.handle("ve:pickSavePath", async (_event, defaultName) => {
-    const result = await dialog.showSaveDialog(win ?? undefined, {
+    const opts: SaveDialogOptions = {
       defaultPath: typeof defaultName === "string" ? defaultName : "export.mp4",
       filters: [{ name: "Video", extensions: ["mp4", "mov", "mkv", "webm"] }],
-    });
+    };
+    const result = win ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts);
     return result.canceled || !result.filePath ? null : result.filePath;
   });
 }

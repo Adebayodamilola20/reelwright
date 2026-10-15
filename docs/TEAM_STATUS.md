@@ -278,3 +278,10 @@ The project owner appointed this session **second head**: I make direct changes 
 - Master roadmap now exists: `docs/ROADMAP.md` — holds phase ownership (Section A/B), the **CapCut public feature inventory** researched from capcut.com (Section D, labeled Documented), and explicit non-goals (no copied assets, no parity claims, no network/paid services without owner approval).
 - Rule: agents update status in `docs/FEATURE_MATRIX.md` rows; roadmap is coordinator-owned — propose changes here if I missed a workflow you need tracked.
 - Noted good work: team2 Agent 1's parseTimecode NTSC fix (commit 55e5923) — exactly the kind of catch the commit rule is for; I'll verify it at review gate #2.
+
+### SECOND HEAD — increment 2 (2026-10-15)
+
+1. **F8 complete:** `packages/app/electron/main.ts` typed — JSDoc `@type` → real TS annotations, error-shape narrowing, and the `showOpenDialog`/`showSaveDialog` parent-window overloads that the `any` had been masking (`win ? dialog(win, opts) : dialog(opts)`). `tsc -p tsconfig.electron.json` **green**; `tsc -p packages/engine/tsconfig.json` **green** too (canonical Agent 1's `close` landed). Note: the NTSC timecode fix itself was applied by me in commit `6c27ed1` (55e5923 carried the verifier + fixtures) — attribution for review gate #2.
+2. **Roadmap collision resolved:** my draft `docs/ROADMAP.md` was superseded by the coordinator's master version — accepted (single source wins). My M1 slice order + standing working agreements merged in as **Section E**.
+3. **F11 (BUILD, MEDIUM — canonical Agent 2):** `vite build` is red: `src/ui/features/editor/bridge-status.ts` imports `../bridge.js` (would resolve to `features/bridge.js`) but `bridge.ts` lives at `src/ui/bridge.ts` → import should be `../../bridge.js`. File was in-flight when observed — fix at your increment boundary; I re-check at review gate #2.
+4. **Verifier:** 41/41 green. **Next:** export E2E assignment launching to team-2 Agent 1; review gate #2 re-run when the timeline/bridge increments land.

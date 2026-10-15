@@ -82,3 +82,21 @@ Research inventory the matrix must cover over successive releases. Status values
 
 - Agents append their feature rows' status updates to the matrix (`docs/FEATURE_MATRIX.md`); this roadmap holds phase ownership + research inventory.
 - Updated: 2026-10-15 at Phase 2/3 opening.
+
+---
+
+## Section E — M1 execution slices + working agreements (second head)
+
+Phase 1 slice order; **each slice ends GREEN (build + tests) with a `TEAM_STATUS` entry**, and phase close still requires the head-run `PHASE_PLAN.md` checklist:
+
+1. Engine core (model/ops/store/persistence) — landed; acceptance pending.
+2. Media ingest + ffprobe metadata (fixtures in `test-media/`) — landed; acceptance pending.
+3. Engine façade + IPC (`engine.ts`, `ipc/dispatcher.ts` → `window.ve`) — landed; acceptance pending.
+4. UI shell (home/editor) + honest states — landed; acceptance pending.
+5. Timeline view + trim/split interactions — in flight.
+6. Preview (HTML text layer + media playback/seek) — pending.
+7. Export plan/runner (progress %, cancel, readable errors) — landed; E2E pending (team-2 Agent 1 assigned).
+8. Reopen/relink asset recovery — pending.
+9. Head acceptance pass over the `PHASE_PLAN.md` checklist.
+
+Standing working agreements: green build at every increment boundary · commit per increment · no concurrent `npm install` · matrix rows become `Implemented` only after a head's acceptance run · honest-disabled controls always (charter).

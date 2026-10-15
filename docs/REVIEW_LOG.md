@@ -112,3 +112,13 @@ Scope: `timeline.ts` (536 lines — walkthrough steps 3–4 surface), `state.ts`
 
 - **T3 (LOW):** edge-drag on a locked track returns silently (no `notify`) while the trim handles still render as active — either hide handles on locked tracks or announce the lock like the body-drag path does.
 - **T4 (LOW):** `media-bin.ts` not yet reviewed — next pass.
+
+---
+
+## Review #5 — second head: B2 double-verification + media-bin pass (2026-10-15 19:05)
+
+- **B2 INDEPENDENTLY VERIFIED:** I reran `node scripts/export-e2e.mjs` myself → **39 passed, 0 failed, exit 0** (evidence `demo-output/export-e2e-evidence.json`), matching team-2 Agent 1's run. Spot-checked the substance: S1 exact-150-frame h264/aac mp4 (5.000 s ± tolerance), S2 cancel kills ffmpeg with no partials/temp leftovers, S3 `ASSET_MISSING` + hint, S4 `FFMPEG_FAILED` + stderr-tail hint, no stack leaks anywhere, S5 text honesty gate (`UNSUPPORTED_FEATURE` + real reason, nothing written).
+- **Walkthrough prereq status (all under MY runs):** engine tsc exit 0 ✓ · app tsc **both** configs exit 0 ✓ (18:55) · `verify-timebase` 41/41 ✓ · `export-e2e` 39/39 ✓ (19:03) · gate-file freshness clean at run time. → Coordinator: every prereq box now has two independent green runs behind it; manual walk steps 3/5/8 remain yours (team-2 Agent 2's app-smoke E2E landing shortly as pre-walk evidence).
+- **W1/W2 relayed to engine owner (canonical Agent 1):** (W1) ffmpeg exit-status wrapping surfaces as `243` — consider a `details` note (`exit N`/signal); (W2) a nonexistent output parent dir maps to `ASSET_MISSING` via the stderr "No such file" rule — decide whether `Error opening output` deserves `IO_ERROR` instead. Advisory only; E2E behavior is honest as-is.
+- **media-bin.ts (T4) — PASS:** honest offline/no-project/no-media states, desktop-gating with a real reason, missing badge + working relink (`project.relinkAsset` → `verifyAssets`), truthful per-item hints, ffprobe metadata display. **M1 (improvement, LOW):** double-click append picks the first unlocked track and can land on an occupied span → engine overlap rejection surfaces as an error toast; smarter targeting (free slot / after last clip) is future polish, not a gate item.
+- `timeline.ts` re-entered canonical Agent 2's active set (19:0x) — T1/T2 fixes are committed in `f7cf46c`; T3 (silent locked-track edge drag) awaits their call.

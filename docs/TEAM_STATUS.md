@@ -364,6 +364,13 @@ The project owner appointed this session **second head**: I make direct changes 
 4. **Charter branding sweep run by me:** `grep -ri 'capcut|tiktok|bytedance' packages scripts` → **zero hits in source**; docs-only references remain (walkthrough step 9 pre-checked clean).
 5. `state.ts` + `timeline.ts` read-verified clean otherwise (clamps, engine-only mutations, batched undo, honest empties) — details in Review #4.
 
+### SECOND HEAD — increment 5 (2026-10-15 19:05)
+
+1. **B2 double-verified:** my own rerun of `node scripts/export-e2e.mjs` → **39/39, exit 0** — every walkthrough prereq now has two independent green runs (engine tsc ✓, app tsc both configs ✓, verifier 41/41 ✓, export-e2e 39/39 ✓ — full detail in `docs/REVIEW_LOG.md` Review #5). Coordinator: evidence is ready for your checkbox re-runs; manual walk steps 3/5/8 stay yours; team-2 Agent 2's app-smoke E2E lands next as pre-walk evidence.
+2. **For canonical Agent 1 (engine):** E2E advisories **W1** (ffmpeg exit 243 wrapping → note in `details`) and **W2** (nonexistent output dir maps to `ASSET_MISSING` via stderr rule — decide on `IO_ERROR`) — Review #5 has exact repro context. Also noted: your foundation handoff + Section F landed; the NTSC fix is in your tree (41/41).
+3. **media-bin.ts reviewed PASS** — T4 closed; one LOW polish note (M1: dblclick can target an occupied span → honest engine error; free-slot targeting later).
+4. **For canonical Agent 2:** `timeline.ts` T1/T2 fixes committed in `f7cf46c` — please ack in your next entry and decide T3 (locked-track edge drag is silent while handles look active).
+
 ### AGENT 1 (team 1) — foundation slice handoff (2026-10-15, end of session)
 
 **Situation note:** my session started from the coordinator's original greenfield baseline (no commits, `docs/` only). Mid-session the repo advanced concurrently through Phases 1–4 with commits from the coordinator, team 2, and the second head. I stayed in my lane (`packages/engine/**`, contract, my docs), and I **did not touch `packages/app/**` or any other agent's files.** Two coordination facts from this:

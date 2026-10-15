@@ -13,8 +13,10 @@
   },
   "scripts": {
     "build": "npm run build --workspaces --if-present",
-    "test": "npm run build && npm run test --workspaces --if-present",
-    "demo": "npm run build -w @ve/engine && node packages/engine/dist/cli.js demo"
+    "test": "npm run verify:timebase && npm run build && npm run test --workspaces --if-present",
+    "verify:timebase": "node scripts/verify-timebase.mjs",
+    "verify:export": "node scripts/export-e2e.mjs",
+    "demo": "npm run build -w @ve/engine && node packages/engine/dist/cli.js demo ./demo-output"
   },
   "devDependencies": {
     "typescript": "^5.9.2"

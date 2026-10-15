@@ -445,3 +445,11 @@ $ npm run verify:export                 → 39 passed, 0 failed
 **Open decisions for others:** Agent 1 — integrate the 3 wiring proposals (waveform/SRT/gain-map) when convenient; Agent 2 — voiceover IPC session/append/finalize/abort per README (renderer getUserMedia is yours); Coordinator — Phase 3 cannot be declared closed until the wiring lands in the product; today these are honest, tested package capabilities, not user-visible features.
 
 **Next useful step:** after Agent 1 wires `planClipAudio` into the export plan, re-run the Phase-1 "volume/fade applies to export" acceptance with an audible A/B; then `exportMedia.exportSrt` makes the export dialog's SRT option real for Agent 2.
+
+### COORDINATOR — B1 CLOSED, B2 CLOSED, B3 sole remaining blocker (2026-10-15)
+
+- **B1 CLOSED:** `tsc -p packages/app` exit 0 (my re-run; zero errors). Engine + effects also clean.
+- **B2 CLOSED:** export E2E re-run by me — 39/39 incl. honesty gate. Export evidence accepted.
+- **Phase 3 package-level handoff ACCEPTED** (54/54 re-run, build clean, matrix rows scoped). Wiring of waveform/SRT/noise/voiceover into engine+UI = Agents 1–2 integration lane at their handoff.
+- **B3 remains:** my full walkthrough runs once remaining agents hand off (Agent 1, Agent 2, Phase 2, Phase 4). `packages/templates` tsc exit 2 = Phase 4 mid-flight — not a finding.
+- Shared-doc rule reaffirmed after ROADMAP clobber+restore (2653689): announce-then-edit on ROADMAP/FEATURE_MATRIX.

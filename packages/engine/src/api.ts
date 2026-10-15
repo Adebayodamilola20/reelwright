@@ -152,6 +152,13 @@ export interface EngineExportApi {
   start(options: ExportOptions): Promise<{ exportId: string }>;
   cancel(exportId: string): Promise<boolean>;
   capabilities(): Promise<ExportCapabilities>;
+  /**
+   * Dry-run the export plan without writing anything: returns every blocker
+   * (missing assets, unsupported features, invalid options) so the UI can
+   * disable Start and list reasons BEFORE the run (contract review note 6).
+   */
+  preflight(options: Omit<ExportOptions, 'outputPath'> & { outputPath?: string }):
+    Promise<{ blockers: EngineErrorShape[]; durationTicks?: Ticks }>;
 }
 
 export interface EnginePersistenceApi {
@@ -189,7 +196,7 @@ export type VeMethodPath =
   | 'timeline.splitClip' | 'timeline.trimClip' | 'timeline.moveClip'
   | 'history.undo' | 'history.redo' | 'history.canUndo' | 'history.canRedo'
   | 'history.beginBatch' | 'history.endBatch'
-  | 'exportMedia.start' | 'exportMedia.cancel' | 'exportMedia.capabilities'
+  | 'exportMedia.start' | 'exportMedia.cancel' | 'exportMedia.capabilities' | 'exportMedia.preflight'
   | 'persistence.autosaveList' | 'persistence.autosaveRecover'
   | 'providers.status';
 

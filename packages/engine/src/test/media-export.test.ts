@@ -200,6 +200,11 @@ test('text clip export is honestly rejected (capability gate)', async () => {
     const overlay = await engine.timeline.addTrack('video', 'Overlay');
     await engine.timeline.addClip({ trackId: v1.id, assetId: res.imported[0].id, start: 0 });
     await engine.timeline.addTextClip({ trackId: overlay.id, start: 0, duration: S, text: 'hi' });
+    // Preflight lists the blocker BEFORE any run (contract review note 6)
+    const pre = await engine.exportMedia.preflight({ container: 'mp4' });
+    assert.equal(pre.blockers.length, 1, JSON.stringify(pre.blockers));
+    assert.equal(pre.blockers[0].code, 'UNSUPPORTED_FEATURE');
+    assert.ok(pre.blockers[0].hint, 'blocker carries an actionable hint');
     // If the local ffmpeg ever gains drawtext, the gate changes message but stays an error.
     await assert.rejects(
       engine.exportMedia.start({ outputPath: join(dir, 't.mp4'), container: 'mp4' }),

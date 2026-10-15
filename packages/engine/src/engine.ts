@@ -5,7 +5,7 @@
  */
 
 import { existsSync, mkdirSync, statSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import type {
   AddClipInput,
@@ -43,7 +43,7 @@ import {
   writeProjectAtomic,
 } from './persistence/persistence.js';
 import { probeCapabilities } from './export/capabilities.js';
-import { buildFfmpegJob } from './export/plan.js';
+import { buildFfmpegJob, programEndTicks } from './export/plan.js';
 import { ExportManager } from './export/runner.js';
 import { ProviderRegistry } from './providers/providers.js';
 import { ProjectStore } from './store/store.js';
@@ -414,15 +414,7 @@ export function createEngine(options: EngineOptions = {}): EngineInstance {
 
   const exportApi: EngineExportApi = {
     async start(options: ExportOptions) {
-      const project = requireProject();
-      const caps = await getCapabilities();
-      const resolvedPaths = new Map<string, string>();
-      for (const asset of project.assets) {
-        if (asset.kind === 'text') continue;
-        const res = resolveAssetPath(asset, dirname(resolve(requirePath())));
-        if (res.status === 'ok' && res.resolvedPath) resolvedPaths.set(asset.id, res.resolvedPath);
-      }
-      const job = buildFfmpegJob(project, resolvedPaths, options, caps);
+      const job = await buildJob(options);
       return exportManager.start(job, options.outputPath);
     },
     async cancel(exportId: string) {
@@ -431,7 +423,34 @@ export function createEngine(options: EngineOptions = {}): EngineInstance {
     async capabilities() {
       return getCapabilities();
     },
+    async preflight(options) {
+      try {
+        const scratch: ExportOptions = {
+          ...options,
+          outputPath: options.outputPath ?? join(tmpdir(), `ve-preflight.${options.container}`),
+        };
+        await buildJob(scratch);
+        const project = requireProject();
+        const rangeEnd = options.range?.end ?? programEndTicks(project);
+        const rangeStart = options.range?.start ?? 0;
+        return { blockers: [], durationTicks: rangeEnd - rangeStart };
+      } catch (e) {
+        return { blockers: [toErrorShape(e)] };
+      }
+    },
   };
+
+  async function buildJob(options: ExportOptions) {
+    const project = requireProject();
+    const caps = await getCapabilities();
+    const resolvedPaths = new Map<string, string>();
+    for (const asset of project.assets) {
+      if (asset.kind === 'text') continue;
+      const res = resolveAssetPath(asset, dirname(resolve(requirePath())));
+      if (res.status === 'ok' && res.resolvedPath) resolvedPaths.set(asset.id, res.resolvedPath);
+    }
+    return buildFfmpegJob(project, resolvedPaths, options, caps);
+  }
 
   const persistenceApi: EnginePersistenceApi = {
     async autosaveList(): Promise<AutosaveInfo[]> {

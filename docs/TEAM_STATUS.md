@@ -620,3 +620,25 @@ Also noted while preparing the handoff: `node_modules/electron` repair repeated 
 - Re-run verification: app smoke E2E **4/4 PASS** (engine round-trip Observed), commit `98fdd04` scope-clean, app tsc + vite build green (correct invocation = package dir / npm script — root-level vite is a coordinator invocation error, documented in Review #5).
 - Honest-state probe accepted as Observed evidence for the UI honesty rows.
 - **Gate: B1 ✅ B2 ✅ B3 ⏳ — waiting on Agent 1 (engine) + Phase 4 handoffs. Next arrival → verify → then I run the full walkthrough.**
+
+---
+
+### Agent 1 (second team) — PREFLIGHT CONSISTENCY E2E (S8) for walkthrough steps 7/9 (2026-10-15 21:05)
+
+**1. Method shape (Observed, from `2de8bd2`):** `exportMedia.preflight(options: Omit<ExportOptions,'outputPath'> & { outputPath?: string }) → Promise<{ blockers: EngineErrorShape[]; durationTicks?: Ticks }>` (`api.ts:160`, impl `engine.ts:426`). Implementation shares `buildJob()` with `start` — the SAME plan-building path (`buildFfmpegJob` is pure, no disk writes) — so plan-level preflight/start consistency is STRUCTURAL, not coincidental; on success it returns `durationTicks = rangeEnd − rangeStart`; any plan error is caught and returned as a single-element `blockers` array via `toErrorShape` (code+message+hint). App usage: `export-dialog.ts:190` gates Start and lists reasons before the run.
+
+**2. S8 results — 12/12 PASS, ZERO contradictions** (`node scripts/export-e2e.mjs`; suite total **63 passed / 0 skipped / 0 failed**, exit 0; JSON evidence `demo-output/export-e2e-evidence.json`):
+
+| Fixture | preflight | start | Consistency verdict |
+|---|---|---|---|
+| Clean 2 s program | `blockers=[]`, `durationTicks=141120000` (exact 2.000 s) | `export:done`, file written | clean ⇔ run-clean ✓ (both directions) |
+| Missing asset | blocks `ASSET_MISSING` + relink hint | rejects `ASSET_MISSING`, **no encode spawned** | predicted ✓ |
+| Text w/o freetype | blocks `UNSUPPORTED_FEATURE` + fix hint | rejects `UNSUPPORTED_FEATURE` | predicted ✓ (auto-skips if drawtext ever present) |
+| Empty timeline | blocks `INVALID_ARGUMENT` | rejects `INVALID_ARGUMENT` | predicted ✓ |
+| Unwritable output dir | `blockers=[]` (plan-level scope) | runtime `FFMPEG_FAILED` + stderr hint, nothing written | documented divergence; runtime failure honest & structured (W6) |
+
+**3. Advisories:** **W6 (LOW, canonical Agent 1, UX tightening — not a bug):** preflight could add an output-dir writability probe (`access(dirParent, W_OK)`) so the dialog pre-disables Start for permission cases; today those are caught only at run time — honestly, with code+hint (S4 + S8 evidence). Contract prose scopes preflight to plan-level blockers (missing assets/unsupported/invalid options), so current behavior is contract-conformant. **W7 investigated and DISPROVEN:** code-reading suggested an empty timeline might slip through to an anullsrc `-t 0` job (hollow "success"); empirically preflight blocks it `INVALID_ARGUMENT` — no gap.
+
+**4. Walkthrough value:** steps 7 (honest preflight before export) and 9 (honesty sweep) now have direct E2E evidence: preflight never claims clean where a plan-level failure then occurs, and never blocks where the plan would succeed (clean program exports). Runtime-only failures (filesystem permissions, ffmpeg runtime) remain honest structured errors, never silent.
+
+**Chain:** `npm run build -w @ve/engine` green; `verify:timebase` 41/41; `verify:export` **63/0/0** exit 0. Commits: `4290a76` (script), this entry. `docs/FEATURE_MATRIX.md` untouched (second head's to flip).

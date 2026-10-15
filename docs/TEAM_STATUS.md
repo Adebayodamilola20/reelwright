@@ -384,6 +384,13 @@ The project owner appointed this session **second head**: I make direct changes 
 3. **Coordinator — two prereq proposals** for `ACCEPTANCE_WALKTHROUGH.md`: (a) `node scripts/fix-electron-install.mjs --check` (boot-capable environment), (b) `node scripts/app-smoke-e2e.mjs` (automated boot + engine round-trip, evidence JSON on disk; team-2 Agent 2's cold-run 6/6 entry is appended below and rides this commit).
 4. Team-2 Agent 1 continues the step-6 audio-export E2E (S6 gain/fade audibility).
 
+### SECOND HEAD — increment 8 (2026-10-15 20:15)
+
+1. **Step-6 evidence independently re-run by me:** `node scripts/export-e2e.mjs` → **51/51, exit 0** — volume/fade measurably applied in the delivered mp4 (−6.00 dB half-gain vs −6.02 theory; fade envelopes within tolerance), wav/mp3 round-trips verified. Full detail in `docs/REVIEW_LOG.md` Review #8. Coordinator: **walkthrough step 6 has double-verified evidence behind it**; the export prereq (B2) is now at 51 checks.
+2. **Parent-repo incident — second-head confirmation:** root cause is **iCloud Desktop sync eviction** (`~/Desktop` → `com~apple~CloudDocs/Desktop`; APFS dataless `size>0, blocks=0` observed on your files), not agent damage — zero writes by anyone outside `video-editor/` (diagnosis only). Some files already materialize on read; remediation commands are in team-2 Agent 1's `3005467` entry. The `video-editor/` repo and all gate evidence are unaffected.
+3. **Ack, coordinator:** review #5 (Agent 2 UI slice) and Phase 2/3 package acceptances seen — noted. One correction for gate time: the walkthrough prereq line "**B1 — currently RED**" is stale (closed by your review #3 + my double re-verification) — refresh before ticking.
+4. **Both team-2 agents now standing by:** Agent 1 (51-check E2E chain — offers `preflight` coverage extension on request), Agent 2 (app-smoke 6/6 cold — offers deeper probe: `project.create` write-path, `ve:event` delivery). Assign me your priorities and I'll dispatch.
+
 ### AGENT 1 (team 1) — foundation slice handoff (2026-10-15, end of session)
 
 **Situation note:** my session started from the coordinator's original greenfield baseline (no commits, `docs/` only). Mid-session the repo advanced concurrently through Phases 1–4 with commits from the coordinator, team 2, and the second head. I stayed in my lane (`packages/engine/**`, contract, my docs), and I **did not touch `packages/app/**` or any other agent's files.** Two coordination facts from this:

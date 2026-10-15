@@ -25,7 +25,12 @@ const VITE_DEV_URL = process.env.VE_VITE_DEV_URL || "";
 // NOTE (second head): JSDoc `@type` does not type `let` declarations in .ts
 // files — these are explicit TS annotations now (F8).
 let win: BrowserWindow | null = null;
-let dispatch: ((method: string, params: unknown[]) => Promise<unknown>) | null = null;
+/** Agent 1's Dispatcher object ({ dispatch, subscribe }) — null until bootstrap succeeds. */
+type DispatcherLike = {
+  dispatch: (method: string, params?: unknown[]) => Promise<unknown>;
+  subscribe: (cb: (event: string, payload: unknown) => void) => () => void;
+} | null;
+let dispatch: DispatcherLike = null;
 let eventSubs: Array<{ event: string; off: () => void }> = [];
 
 const ENGINE_EVENTS = [
@@ -73,22 +78,21 @@ async function bootstrapEngine() {
       log("createEngineDispatcher not exported yet — running without bridge");
       return;
     }
-    dispatch = mod[dispatcherName](engine);
+    const dispatcher: DispatcherLike = mod[dispatcherName](engine);
+    if (!dispatcher || typeof dispatcher.dispatch !== "function") {
+      log("dispatcher factory returned an unexpected shape — running without bridge");
+      return;
+    }
+    dispatch = dispatcher;
 
-    const on = typeof engine.on === "function" ? engine.on.bind(engine) : null;
-    if (on) {
-      for (const name of ENGINE_EVENTS) {
-        try {
-          const off = on(name, (payload: unknown) => {
-            if (win && !win.isDestroyed()) {
-              win.webContents.send("ve:event", { event: name, payload });
-            }
-          });
-          eventSubs.push({ event: name, off: typeof off === "function" ? off : () => {} });
-        } catch (e) {
-          log(`engine does not emit '${name}':`, e instanceof Error ? e.message : e);
+    // Dispatcher fans out every EngineEvent (contract list) — single subscription.
+    if (typeof dispatcher.subscribe === "function") {
+      const off = dispatcher.subscribe((name, payload) => {
+        if (win && !win.isDestroyed()) {
+          win.webContents.send("ve:event", { event: name, payload });
         }
-      }
+      });
+      eventSubs.push({ event: "*", off: typeof off === "function" ? off : () => {} });
     }
     log(`engine ready via ${factoryName} + ${dispatcherName}`);
   } catch (err) {
@@ -104,13 +108,13 @@ async function bootstrapEngine() {
  * ------------------------------------------------------------------ */
 
 function wireIpc() {
-  ipcMain.on("ve:invoke", async (event, req) => {
-    const { callId, method, params } = req || {};
-    const sender = event.sender;
-    if (typeof callId !== "number") return;
-
+  // Envelope-based reply (dispatcher.ts doc): Electron does not preserve
+  // custom properties on thrown errors across `handle`, so results and
+  // EngineErrorShapes travel as plain data; the preload rehydrates.
+  ipcMain.handle("ve:invoke", async (_event, msg: { callId?: string; method?: string; params?: unknown[] }) => {
+    const callId = msg?.callId ?? "";
     if (!dispatch) {
-      sender.send("ve:reply", {
+      return {
         callId,
         ok: false,
         error: {
@@ -118,12 +122,11 @@ function wireIpc() {
           message: "Engine is not available in this session.",
           hint: "Build @ve/engine (npm run build -w @ve/engine) and restart the app.",
         },
-      });
-      return;
+      };
     }
     try {
-      const value = await dispatch(method, Array.isArray(params) ? params : []);
-      sender.send("ve:reply", { callId, ok: true, value });
+      const value = await dispatch.dispatch(msg.method ?? "", Array.isArray(msg.params) ? msg.params : []);
+      return { callId, ok: true, value };
     } catch (err) {
       // Contract: errors cross as EngineErrorShape, never raw stacks.
       const shape =
@@ -141,7 +144,7 @@ function wireIpc() {
               code: "IO_ERROR",
               message: err instanceof Error ? err.message : String(err),
             };
-      sender.send("ve:reply", { callId, ok: false, error: shape });
+      return { callId, ok: false, error: shape };
     }
   });
 

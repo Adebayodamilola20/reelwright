@@ -1,100 +1,85 @@
 /**
- * Editor workspace — the four-region layout:
+ * Editor workspace assembly:
  *
- *   ┌──────────────── toolbar (tools / actions) ────────────────┐
- *   │ media bin │      preview monitor       │   inspector      │
- *   ├───────────┴────────────────────────────┴──────────────────┤
- *   │ timeline (ruler, tracks, playhead)                        │
- *   └──────────────────── status bar (shell) ───────────────────┘
+ *   toolbar
+ *   media bin │ preview monitor │ inspector
+ *   timeline
  *
- * Panel *structure* is contract-independent. Panels show honest empty
- * states until the engine bridge is connected; integration wiring lands
- * with contract v1.
+ * Panels subscribe to the shared UI state; engine wiring lives in state.ts.
  */
 
 import { el, emptyState } from "../../states/states";
-import { getServices, NO_ENGINE_REASON } from "../../services";
+import { getBridgeStatus } from "../../bridge.js";
+import { createToolbar, type Toolbar } from "../toolbar/toolbar.js";
+import { createMediaBin, type MediaBin } from "../media-bin/media-bin.js";
+import { createPreviewMonitor, type PreviewMonitor } from "../preview/preview.js";
+import { createInspector, type Inspector } from "../inspector/inspector.js";
+import { createTimeline, type TimelinePanel } from "../timeline/timeline.js";
 
 export interface EditorView {
   root: HTMLElement;
-  toolbarHost: HTMLElement;
-  mediaBinHost: HTMLElement;
-  previewHost: HTMLElement;
-  inspectorHost: HTMLElement;
-  timelineHost: HTMLElement;
   destroy(): void;
 }
 
 export function createEditorView(): EditorView {
-  const services = getServices();
+  const status = getBridgeStatus();
 
-  const toolbarHost = el("div", { class: "rw-toolbar__inner", role: "toolbar",
-    "aria-label": "Editor tools" });
-  const toolbar = el("div", { class: "rw-toolbar" }, [toolbarHost]);
+  const toolbar: Toolbar = createToolbar();
 
-  const mediaBinHost = el("section", {
-    class: "rw-panel rw-panel--bin", id: "rw-panel-bin",
-    "aria-label": "Media bin", tabindex: "-1",
+  const mediaBin: MediaBin = createMediaBin();
+  const binPanel = panel("Media", mediaBin.root);
+  const previewPanel = el("section", {
+    class: "rw-panel rw-panel--preview",
+    id: "rw-panel-preview",
+    "aria-label": "Preview monitor",
+    tabindex: "-1",
   });
-  const previewHost = el("section", {
-    class: "rw-panel rw-panel--preview", id: "rw-panel-preview",
-    "aria-label": "Preview monitor", tabindex: "-1",
-  });
-  const inspectorHost = el("section", {
-    class: "rw-panel rw-panel--inspector", id: "rw-panel-inspector",
-    "aria-label": "Inspector", tabindex: "-1",
-  });
-  const timelineHost = el("section", {
-    class: "rw-panel rw-panel--timeline", id: "rw-panel-timeline",
-    "aria-label": "Timeline", tabindex: "-1",
-  });
+  const preview: PreviewMonitor = createPreviewMonitor();
+  previewPanel.append(preview.root);
+  const inspector: Inspector = createInspector();
+  const inspectorPanel = el("section", {
+    class: "rw-panel rw-panel--inspector",
+    id: "rw-panel-inspector",
+    "aria-label": "Inspector",
+    tabindex: "-1",
+  }, [inspector.root]);
+  const timeline: TimelinePanel = createTimeline();
+  const timelinePanel = el("section", {
+    class: "rw-panel rw-panel--timeline",
+    id: "rw-panel-timeline",
+    "aria-label": "Timeline",
+    tabindex: "-1",
+  }, [timeline.root]);
 
-  const mid = el("div", { class: "rw-editor__mid" }, [mediaBinHost, previewHost, inspectorHost]);
-  const body = el("div", { class: "rw-editor__body" }, [mid, timelineHost]);
-  const root = el("div", { class: "rw-editor" }, [toolbar, body]);
+  const mid = el("div", { class: "rw-editor__mid" }, [binPanel, previewPanel, inspectorPanel]);
+  const body = el("div", { class: "rw-editor__body" }, [mid, timelinePanel]);
+  const root = el("div", { class: "rw-editor" }, [toolbar.root, body]);
 
-  // Honest placeholders until contract-v1 integration.
-  const reason = services
-    ? "Populated once the project model is connected (contract v1)."
-    : NO_ENGINE_REASON;
-
-  mediaBinHost.append(
-    emptyState({
-      icon: "▤",
-      title: "Media bin is empty",
-      description: "Imported video, audio, and images appear here.",
-      hint: services ? reason : NO_ENGINE_REASON,
-    }),
-  );
-  previewHost.append(
-    emptyState({
-      icon: "▶",
-      title: "Nothing to preview",
-      description: "Place a clip on the timeline to see it here.",
-      hint: services ? reason : NO_ENGINE_REASON,
-    }),
-  );
-  inspectorHost.append(
-    emptyState({
-      icon: "⚙",
-      title: "No selection",
-      description: "Select a clip or text layer to edit its properties.",
-      hint: services ? reason : NO_ENGINE_REASON,
-    }),
-  );
-  timelineHost.append(
-    emptyState({
-      icon: "⇄",
-      title: "Timeline is empty",
-      description: "Drag media from the bin, or press ⌘I to import.",
-      hint: services ? reason : NO_ENGINE_REASON,
-    }),
-  );
+  if (!status.connected) {
+    root.prepend(
+      el("div", { class: "rw-banner rw-banner--warn", role: "status" },
+        ["Engine not connected — the editor is read-only. ", status.reason]),
+    );
+  }
 
   return {
-    root, toolbarHost, mediaBinHost, previewHost, inspectorHost, timelineHost,
+    root,
     destroy() {
+      toolbar.destroy();
+      mediaBin.destroy();
+      preview.destroy();
+      inspector.destroy();
+      timeline.destroy();
       root.replaceChildren();
     },
   };
+}
+
+function panel(label: string, child: HTMLElement): HTMLElement {
+  return el("section", {
+    class: `rw-panel rw-panel--bin`,
+    id: "rw-panel-bin",
+    "aria-label": label,
+    tabindex: "-1",
+  }, [child]);
 }

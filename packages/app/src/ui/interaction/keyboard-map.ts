@@ -238,9 +238,8 @@ export function resolveEvent(
   for (const action of KEYBOARD_ACTIONS) {
     for (const binding of action.bindings) {
       if (binding.only && binding.only !== platform) continue;
-      if (inTextInput && binding.outsideInput) continue;
+      if (opts.inTextInput && binding.outsideInput) continue;
       const want = parseBinding(binding.key);
-      // Normalize 'Mod' per platform already handled by eventToKey.
       if (
         want.mod === ev.mod &&
         want.shift === ev.shift &&

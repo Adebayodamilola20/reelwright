@@ -9,14 +9,15 @@
 export function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   attrs: Record<string, string | boolean | undefined> = {},
-  children: Array<Node | string> = [],
+  children: Array<Node | string> | Node | string = [],
 ): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
     if (v === undefined || v === false) continue;
     node.setAttribute(k, v === true ? "" : v);
   }
-  for (const c of children) node.append(c);
+  const list = Array.isArray(children) ? children : [children];
+  for (const c of list) node.append(c);
   return node;
 }
 

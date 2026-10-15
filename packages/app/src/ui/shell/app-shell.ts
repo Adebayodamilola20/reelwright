@@ -8,7 +8,7 @@
  */
 
 import { emptyState, el } from "../states/states";
-import { getServices, NO_ENGINE_REASON, disableWithReason } from "../services";
+import { bridge, getBridgeStatus, disableWithReason } from "../bridge";
 import { detectPlatform, describeBinding } from "../interaction/keyboard-map";
 
 export interface AppShell {
@@ -23,7 +23,8 @@ export interface AppShell {
 }
 
 export function createAppShell(): AppShell {
-  const services = getServices();
+  const bridgeStatus = getBridgeStatus();
+  const hasEngine = bridgeStatus.connected;
   const platform = detectPlatform();
 
   const root = el("div", { class: "rw-shell" });
@@ -58,10 +59,10 @@ export function createAppShell(): AppShell {
   const engineEl = el(
     "span",
     {
-      class: `rw-status__item ${services ? "" : "rw-status__item--warn"}`,
-      title: services ? "Media engine connected" : NO_ENGINE_REASON,
+      class: `rw-status__item ${hasEngine ? "" : "rw-status__item--warn"}`,
+      title: hasEngine ? "Media engine connected" : bridgeStatus.reason,
     },
-    services ? "Engine ready" : "Engine not connected",
+    hasEngine ? "Engine ready" : "Engine not connected",
   );
   const hintEl = el(
     "span",

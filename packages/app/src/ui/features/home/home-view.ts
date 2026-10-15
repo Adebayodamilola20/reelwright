@@ -1,19 +1,20 @@
 /**
- * Home / project library view.
+ * Home / project library view (contract v1 API):
+ *  - `project.recent` → list of { path, name, openedAt }
+ *  - `project.open(path)` → offers newer autosave when hinted (nothing auto-overwritten)
+ *  - `project.create({ name, dir })` → native directory picker + name prompt
  *
- * Honest states:
- *  - engine absent → create/open disabled with reason; explanatory banner
- *  - engine present, no projects → empty state with New project CTA
- *  - loading/error → shared primitives
+ * Honest states throughout: engine absent → disabled with reason; empty → CTA.
  */
 
 import { el, emptyState, loadingState, errorState, notify } from "../../states/states";
-import { getServices, NO_ENGINE_REASON, disableWithReason, type ProjectSummary } from "../../services";
+import { call, pickProjectDirectory, errorMessage, isDesktop } from "../../bridge.js";
+import { wireEngineEvents, refreshState, verifyAssets } from "../../state.js";
 import { navigateTo } from "../../router";
+import type { AutosaveInfo, OpenProjectResult, RecentEntry } from "../../ve.js";
 
 export interface HomeView {
   root: HTMLElement;
-  /** Re-read the project list (called on show) */
   refresh(): Promise<void>;
   destroy(): void;
 }
@@ -22,101 +23,136 @@ const MAX_NAME_LEN = 80;
 
 export function createHomeView(announce: (m: string, a?: boolean) => void): HomeView {
   const root = el("div", { class: "rw-home" });
-  const services = getServices();
+  const engineHere = isDesktop() || typeof window.ve === "object";
 
-  // ---- Hero header ---- */
-  const title = el("h1", {}, "Projects");
-  const sub = el("p", {
-    class: "dim",
-  }, "Create a project, import media, and edit on the timeline. Everything stays on this computer.");
+  const title = el("h1", {}, "Reelwright");
+  const sub = el("p", { class: "dim" },
+    "Local-first video editing. Create a project, import media, cut on the timeline, and export — everything stays on this computer.");
 
-  const newBtn = el("button", { class: "rw-btn rw-btn--primary", type: "button" },
-    "＋ New project");
-  const importBtn = el("button", { class: "rw-btn", type: "button" },
-    "⬇ Import media");
-
-  if (!services) {
-    disableWithReason(newBtn, NO_ENGINE_REASON);
-    disableWithReason(importBtn, NO_ENGINE_REASON);
-  }
-
+  const newBtn = el("button", { class: "rw-btn rw-btn--primary", type: "button" }, "＋ New project");
   const hero = el("div", { class: "rw-home__hero" }, [
     el("div", { class: "rw-home__heroText" }, [title, sub]),
-    el("div", { class: "rw-home__actions" }, [importBtn, newBtn]),
+    el("div", { class: "rw-home__actions" }, [newBtn]),
   ]);
   root.append(hero);
 
-  // ---- Engine warning banner when disconnected ----
-  if (!services) {
+  if (!window.ve) {
     root.append(
       errorState({
-        title: "Media engine not connected",
+        title: "Engine not connected",
         detail:
-          "window.ve bridge is not present. The UI shell is running, but project " +
-          "creation, import, playback, and export are unavailable until the engine " +
-          "package is loaded.",
+          "You are viewing the interface shell only. Run the desktop build "
+          + "(npm start -w @ve/app) to create, open, and edit projects.",
       }),
     );
+    newBtn.disabled = true;
+    newBtn.title = "Requires the desktop app with the engine connected.";
   }
 
-  // ---- Project list ----
-  const listHost = el("section", {
-    class: "rw-home__list",
-    "aria-label": "Recent projects",
-  });
+  const listHost = el("section", { class: "rw-home__list", "aria-label": "Recent projects" });
   root.append(listHost);
 
-  function renderList(projects: ProjectSummary[]): void {
+  /* ---------------- create ---------------- */
+
+  newBtn.addEventListener("click", () => void promptNew());
+
+  async function promptNew(): Promise<void> {
+    if (!window.ve) return;
+    // Directory first (native dialog), then name.
+    const dir = await pickProjectDirectory();
+    if (!dir) return;
+    const name = window.prompt("Project name", "Untitled project");
+    if (name === null) return;
+    const trimmed = name.trim().slice(0, MAX_NAME_LEN) || "Untitled project";
+    try {
+      await call("project.create", [{ name: trimmed, dir }]);
+      wireEngineEvents();
+      await refreshState();
+      await verifyAssets();
+      announce(`Created project ${trimmed}`);
+      navigateTo({ view: "editor" });
+    } catch (err) {
+      const e = errorMessage(err);
+      notify("error", `Could not create project: ${e.message}`, e.hint ? { detail: e.hint } : {});
+    }
+  }
+
+  /* ---------------- list ---------------- */
+
+  async function refresh(): Promise<void> {
+    if (!window.ve) return;
+    try {
+      const recent = await call<RecentEntry[]>("project.recent");
+      renderList(recent);
+    } catch (err) {
+      listHost.replaceChildren(
+        errorState({
+          title: "Could not load recent projects",
+          detail: errorMessage(err).message,
+          retry: { label: "Retry", onClick: () => void refresh() },
+        }),
+      );
+    }
+  }
+
+  function renderList(recent: RecentEntry[]): void {
     listHost.replaceChildren();
-    if (projects.length === 0) {
+    if (recent.length === 0) {
       listHost.append(
         emptyState({
           icon: "▦",
           title: "No projects yet",
-          description: "Create your first project to start editing video, audio, images, and text.",
-          ...(services
-            ? { action: { label: "New project", onClick: () => void promptNew() } }
-            : { hint: NO_ENGINE_REASON }),
+          description: "Create your first project — you choose the folder where it lives.",
+          action: { label: "New project", onClick: () => void promptNew() },
         }),
       );
       return;
     }
+    const h = el("h2", { class: "rw-home__section" }, "Recent projects");
     const grid = el("div", { class: "rw-project-grid" });
-    for (const p of projects) {
-      const card = el("article", { class: "rw-project-card" });
-      const openBtn = el("button", {
-        class: "rw-project-card__open",
-        type: "button",
-        "aria-label": `Open project ${p.name}`,
-      }, [
-        el("div", { class: "rw-project-card__thumb mono" }, "▶"),
-        el("div", { class: "rw-project-card__meta" }, [
-          el("h3", { class: "rw-project-card__name" }, p.name),
-          el("p", { class: "rw-project-card__stats faint mono" },
-            `${p.clipCount} clips · ${formatDuration(p.durationSec)} · ${formatDate(p.modifiedAt)}`),
-        ]),
-      ]);
-      openBtn.addEventListener("click", () => {
-        void openProject(p);
-      });
-      card.append(openBtn);
-      grid.append(card);
+    for (const entry of recent) {
+      grid.append(projectCard(entry));
     }
-    listHost.append(grid);
+    listHost.append(h, grid);
   }
 
-  async function openProject(p: ProjectSummary): Promise<void> {
-    if (!services) return;
+  function projectCard(entry: RecentEntry): HTMLElement {
+    const card = el("article", { class: "rw-project-card" });
+    const openBtn = el("button", {
+      class: "rw-project-card__open",
+      type: "button",
+      "aria-label": `Open project ${entry.name}`,
+    }, [
+      el("div", { class: "rw-project-card__thumb mono" }, "▶"),
+      el("div", { class: "rw-project-card__meta" }, [
+        el("h3", { class: "rw-project-card__name" }, entry.name),
+        el("p", { class: "rw-project-card__stats faint mono", title: entry.path },
+          `${entry.path.split("/").slice(-2).join("/")} · ${formatDate(entry.openedAt)}`),
+      ]),
+    ]);
+    openBtn.addEventListener("click", () => void openEntry(entry));
+    card.append(openBtn);
+    return card;
+  }
+
+  async function openEntry(entry: RecentEntry): Promise<void> {
+    listHost.replaceChildren(loadingState({ label: `Opening ${entry.name}…` }));
     try {
-      listHost.replaceChildren(loadingState({ label: `Opening ${p.name}…` }));
-      await services.openProject(p.id);
-      announce(`Opened project ${p.name}`);
-      navigateTo({ view: "editor", projectId: p.id });
+      const result = await call<OpenProjectResult>("project.open", [entry.path]);
+      wireEngineEvents();
+      await refreshState();
+      await verifyAssets();
+      announce(`Opened project ${entry.name}`);
+      navigateTo({ view: "editor" });
+      if (result.recoveredAutosave) {
+        offerAutosave(entry, result.recoveredAutosave);
+      }
     } catch (err) {
+      const e = errorMessage(err);
       listHost.replaceChildren(
         errorState({
-          title: `Could not open “${p.name}”`,
-          detail: err instanceof Error ? err.message : String(err),
+          title: `Could not open “${entry.name}”`,
+          detail: `${e.message}${e.hint ? `\n${e.hint}` : ""}`,
           retry: { label: "Try again", onClick: () => void refresh() },
           dismissible: true,
           onDismiss: () => void refresh(),
@@ -125,43 +161,37 @@ export function createHomeView(announce: (m: string, a?: boolean) => void): Home
     }
   }
 
-  async function promptNew(): Promise<void> {
-    if (!services) return;
-    const name = window.prompt("Project name", "Untitled project");
-    if (name === null) return;
-    const trimmed = name.trim().slice(0, MAX_NAME_LEN) || "Untitled project";
-    try {
-      await services.createProject(trimmed);
-      announce(`Created project ${trimmed}`);
-      await refresh();
-      navigateTo({ view: "editor" });
-    } catch (err) {
-      notify("error", "Could not create project", {
-        detail: err instanceof Error ? err.message : String(err),
-      });
-    }
-  }
+  /** Contract: nothing is auto-overwritten — the UI offers recovery explicitly. */
+  function offerAutosave(entry: RecentEntry, autosave: AutosaveInfo): void {
+    const when = formatDate(autosave.modifiedMs);
+    const box = el("div", { class: "rw-error", role: "alert", style: "margin:0 0 16px" }, [
+      el("div", { class: "rw-error__title" }, [
+        el("strong", {}, `A newer autosave of “${entry.name}” exists (${when})`),
+      ]),
+      el("p", { class: "dim" }, "The project file opened as saved. Recover the newer autosave instead?"),
+    ]);
+    const row = el("div", { class: "rw-error__actions" });
+    const recover = el("button", { class: "rw-btn rw-btn--primary", type: "button" }, "Recover autosave");
+    const keep = el("button", { class: "rw-btn", type: "button" }, "Keep the saved version");
+    row.append(recover, keep);
+    box.append(row);
+    root.prepend(box);
 
-  newBtn.addEventListener("click", () => void promptNew());
-  importBtn.addEventListener("click", () => {
-    // Media import from home: not wired until contract defines dialog ownership.
-    notify("info", "Import from the project home arrives with contract v1 — open a project first.");
-  });
-
-  async function refresh(): Promise<void> {
-    if (!services) return;
-    try {
-      const projects = await services.listProjects();
-      renderList(projects);
-    } catch (err) {
-      listHost.replaceChildren(
-        errorState({
-          title: "Could not load projects",
-          detail: err instanceof Error ? err.message : String(err),
-          retry: { label: "Retry", onClick: () => void refresh() },
-        }),
-      );
-    }
+    recover.addEventListener("click", async () => {
+      try {
+        await call("persistence.autosaveRecover", [autosave.path]);
+        await refreshState();
+        await verifyAssets();
+        notify("success", `Recovered autosave of “${entry.name}” — save to keep it.`);
+        navigateTo({ view: "editor" });
+      } catch (err) {
+        const e = errorMessage(err);
+        notify("error", `Recovery failed: ${e.message}`, e.hint ? { detail: e.hint } : {});
+      } finally {
+        box.remove();
+      }
+    });
+    keep.addEventListener("click", () => box.remove());
   }
 
   return {
@@ -173,23 +203,10 @@ export function createHomeView(announce: (m: string, a?: boolean) => void): Home
   };
 }
 
-function formatDuration(sec: number): string {
-  if (!Number.isFinite(sec) || sec <= 0) return "0:00";
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  if (m >= 60) {
-    const h = Math.floor(m / 60);
-    return `${h}:${String(m % 60).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  }
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-function formatDate(ts: number): string {
-  try {
-    return new Date(ts).toLocaleString(undefined, {
-      month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
-    });
-  } catch {
-    return "";
-  }
+function formatDate(ts: number | string): string {
+  const d = typeof ts === "string" ? new Date(ts) : new Date(ts);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString(undefined, {
+    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+  });
 }

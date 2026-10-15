@@ -22,6 +22,25 @@ Platform for Phase 1+ = macOS first (Designed); core is platform-neutral TypeScr
 | Reopen recovers asset references | Planned | macOS | persistence + relink | See relink row | Designed |
 | Honest states (no fake-functional controls) | In progress (unverified) | macOS | states library, capabilities API | Every unavailable control shows why | Observed (review #1 partial) |
 
+### Phase 1 UI slice — Agent 2 (first team), 2026-10-15
+
+App-side rows (`packages/app/**`). Evidence refs cited below: `demo-output/app-smoke-evidence.json` (Electron smoke via `node scripts/app-smoke-e2e.mjs --skip-build`, 4/4 PASS) · disconnected-state probe (Electron loads the built UI without preload ⇒ no `window.ve`) · app build gates. Editor click-through flows are *not* claimed — those cells stay Designed/Inferred.
+
+| Feature | Status | Platform | Dependencies | Acceptance criteria | Evidence |
+|---|---|---|---|---|---|
+| App shell: hash routing (`#/home`, `#/editor?project=`), design tokens, focus rings, reduced-motion, skip link | Implemented (Observed boot) | macOS | Electron + vite build | Electron boots to Reelwright home; title/skip link present | Observed (smoke: `title:"Reelwright"`, bodyChildren 2, text sample shows home view) |
+| Engine bridge (`window.ve` envelope protocol) + honest fallback | Implemented (Observed) | macOS | `preload.cjs` + `ipcMain.handle('ve:invoke')` | bridge present in app; absent → clear status, never silent failure | Observed (`hasVe/hasInvoke/hasOn` true in app; `window.ve === undefined` in probe) + real engine round-trip `invoke('project.recent') → []` |
+| Home/library: recent projects, create/open, autosave recovery offer | Implemented (UI); create/open click-through unverified | macOS | `project.recent/create/open` | recent list renders from engine; create picks folder | Observed (recent round-trip → `[]`); create/open Designed (unverified) |
+| Honest disconnected/empty states (no fake-functional controls) | Implemented (Observed) | macOS | states lib, `disableWithReason` | no bridge → banner + per-control reason; empty views give a real next step | Observed (probe: home "Engine not connected / Running without engine bridge" with `＋ New project` disabled; editor read-only banner naming `window.ve` + 10 controls disabled: undo/redo/Split/duplicate/delete/Import/Text/Save/Export…/＋ Import; empty media/preview/timeline copy) |
+| Editor layout: toolbar, media bin, preview, timeline, inspector panes | Implemented (renders; editing flows unverified) | macOS | contract v1 | all panes mount with honest empty states | Observed (editor route render in probe: all five regions present with ruler/transport/disabled actions); editing flows Designed |
+| Media bin (import/list, metadata rows) | Implemented (UI slice; live-asset flow unverified) | macOS | `media.*` contract calls | import shows duration/fps; missing asset flagged honestly | Designed (render logic); Observed (empty + disconnected states only) |
+| Preview monitor: clip-under-playhead + HTML text overlay; playhead UI-owned in v1 (contract note 1) | Implemented (UI slice; playback unverified) | macOS | `project.tick` events, media frames | playhead advances; overlay appears at clip's time range | Designed (in-app label states it is an overlay preview, not rendered output) |
+| Multitrack timeline — canonical `features/timeline/timeline.ts` | Implemented (UI slice; engine-op flows unverified) | macOS | `timeline.*` ops | clips render/zoom/scroll; trim/split/move obey bounds | Designed (render); engine ops Observed (code review #1). Second-team `timeline-view.ts` quarantined + excluded from tsconfig (`features/timeline/README-ownership.md`) |
+| Inspector (selected-clip properties) | Implemented (UI slice; unverified) | macOS | clip get/set ops | edit applies, undo restores | Designed |
+| Toolbar + shared commands (one path for clicks and shortcuts) | Implemented (Observed gating) | macOS | `commands.ts`, `keyboard-map.ts` | same command from button and key; unavailable → disabled + reason | Observed (disabled set in probe matches bridge-down capability) |
+| Export dialog: progress %, cancel, readable errors; text burn-in gated OFF with real reason | Implemented (UI slice; export E2E evidence is engine-side) | macOS | `export.*` contract + capability gates | progress tracks engine events; cancel stops; gated control shows reason | Designed (dialog wiring); Inferred (live event tracking unverified here) |
+| App build gates | Implemented (Observed) | macOS | tsc, vite | `tsc -p packages/app` (renderer + electron configs) exit 0; vite build green | Observed (both tsc exit 0; vite 26 modules built, 2026-10-15) |
+
 ## Phase 2 — editing depth
 
 Rows 1–10 (effects/transitions/keyframes/speed/masks/color/stickers): **Agent 2.5 (`@ve/effects`)**, 2026-10-15.

@@ -2,8 +2,13 @@
  * Electron preload — exposes the contract's `window.ve` bridge.
  * Contract: docs/PROJECT_CONTRACT.md → "Engine ↔ UI boundary".
  *
- *   invoke(method, params?) → Promise<value>   (ve:invoke / ve:reply, callId correlation)
+ *   invoke(method, params?) → Promise<value>   (ve:invoke request/response)
  *   on(event, cb) → unsubscribe                (ve:event channel)
+ *
+ * Transport matches @ve/engine's createEngineDispatcher: main wires
+ * ipcMain.handle('ve:invoke', ...) to dispatcher(method, params), which
+ * returns the value or throws an EngineErrorShape. Errors are rehydrated
+ * into an Error carrying .code/.hint/.details for the UI's error states.
  *
  * Plain CommonJS (sandboxed preload restriction) — no build step on purpose.
  */
@@ -11,29 +16,7 @@
 
 const { contextBridge, ipcRenderer } = require("electron");
 
-let seq = 0;
-const pending = new Map(); // callId -> { resolve, reject }
 const listeners = new Map(); // event -> Set<cb>
-
-ipcRenderer.on("ve:reply", (_event, msg) => {
-  if (!msg || typeof msg.callId !== "number") return;
-  const entry = pending.get(msg.callId);
-  if (!entry) return;
-  pending.delete(msg.callId);
-  if (msg.ok) {
-    entry.resolve(msg.value);
-  } else {
-    const err = new Error(
-      (msg.error && msg.error.message) || "Engine request failed",
-    );
-    if (msg.error) {
-      err.code = msg.error.code;
-      err.hint = msg.error.hint;
-      err.details = msg.error.details;
-    }
-    entry.reject(err);
-  }
-});
 
 ipcRenderer.on("ve:event", (_event, msg) => {
   if (!msg || typeof msg.event !== "string") return;
@@ -49,16 +32,24 @@ ipcRenderer.on("ve:event", (_event, msg) => {
 });
 
 contextBridge.exposeInMainWorld("ve", {
-  invoke(method, params) {
-    return new Promise((resolve, reject) => {
-      if (typeof method !== "string" || !method.includes(".")) {
-        reject(new Error(`Invalid engine method path: ${String(method)}`));
-        return;
-      }
-      const callId = ++seq;
-      pending.set(callId, { resolve, reject });
-      ipcRenderer.send("ve:invoke", { callId, method, params: params || [] });
+  async invoke(method, params) {
+    if (typeof method !== "string" || !method.includes(".")) {
+      throw new Error(`Invalid engine method path: ${String(method)}`);
+    }
+    // Envelope protocol (see main.ts): Electron drops custom properties on
+    // thrown errors, so results/errors travel as plain data.
+    const res = await ipcRenderer.invoke("ve:invoke", {
+      callId: crypto.randomUUID(),
+      method,
+      params: params || [],
     });
+    if (res && res.ok) return res.value;
+    const shape = (res && res.error) || {};
+    const err = new Error(shape.message || "Engine request failed");
+    err.code = shape.code;
+    err.hint = shape.hint;
+    err.details = shape.details;
+    throw err;
   },
   on(event, cb) {
     if (typeof event !== "string" || typeof cb !== "function") {
@@ -73,5 +64,16 @@ contextBridge.exposeInMainWorld("ve", {
     return () => {
       set.delete(cb);
     };
+  },
+
+  // App-side native dialogs (contract review note #7 — engine stays headless).
+  pickFiles(kind) {
+    return ipcRenderer.invoke("ve:pickFiles", kind);
+  },
+  pickDirectory() {
+    return ipcRenderer.invoke("ve:pickDirectory");
+  },
+  pickSavePath(defaultName, extensions) {
+    return ipcRenderer.invoke("ve:pickSavePath", defaultName, extensions);
   },
 });

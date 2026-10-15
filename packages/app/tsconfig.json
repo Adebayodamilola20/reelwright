@@ -10,7 +10,19 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    "baseUrl": ".",
+    "paths": {
+      "@ve/engine": ["../engine/src/api.ts"],
+      "@ve/engine/types": ["../engine/src/types.ts"],
+      "@ve/engine/time": ["../engine/src/time.ts"]
+    }
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src", "vite.config.ts"],
+  "exclude": [
+    // Second-team Agent 2's parallel timeline draft, built against the
+    // pre-contract services.ts prototype (superseded by the contract-v1
+    // timeline.ts in this same folder; kept on disk, announced in TEAM_STATUS).
+    "src/ui/features/timeline/timeline-view.ts"
+  ]
 }

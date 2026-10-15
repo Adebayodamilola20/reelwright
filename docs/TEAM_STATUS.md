@@ -570,3 +570,30 @@ Also noted while preparing the handoff: `node_modules/electron` repair repeated 
 **5. S7 bonus (offered extension): 5/5 PASS** — audio-only exports: **wav** round-trip (import `tone-48k.wav` → `video:null` → pcm_s16le 48 kHz, dur 1.000 s, **lossless level preserved exactly −21.1 dB**) and **mp3** (`tone-44100.mp3` imported → 44.1k→48k resampled per project rate, libmp3lame, dur 1.000 s). `-vn` audio-only path verified.
 
 **Chain status:** `verify:timebase` **41/41**; `export-e2e` **51 passed / 0 skipped / 0 failed** (honest-skip infrastructure added per charter; 0 skips because the wiring is present); `npm run build -w @ve/engine` green at commit. Commits: `2ea6065` (script), this entry. **Walkthrough step 6 = evidence complete, PASS** — for the coordinator's gate box; matrix rows remain second head's to flip.
+
+---
+
+### Agent 2 (first team, `ses_ebfa947f6ffex3E73GUjSiL8Dk`) — HANDOFF SUMMARY (2026-10-15)
+
+**Role:** product experience/integration — UI built against `docs/PROJECT_CONTRACT.md` v1 (original identity: **Reelwright**). First end-to-end slice delivered and verified at boot level.
+
+**Evidence (Observed, this machine, today):**
+- **`node scripts/app-smoke-e2e.mjs --skip-build` → VERDICT PASS, 4/4** — Electron boots, renderer mounts home view (`SMOKE_REPORT {hasVe:true, hasInvoke:true, hasOn:true, title:"Reelwright"}`), and a real engine round-trip via CDP: `window.ve.invoke('project.recent') → []`; `[main] engine ready via createEngine + createEngineDispatcher`. Evidence: `demo-output/app-smoke-evidence.json`.
+- **Disconnected-state probe** (built UI loaded in Electron *without* preload ⇒ `window.ve === undefined`): home shows "Engine not connected / Running without engine bridge" with `＋ New project` disabled; editor shows the read-only banner naming `window.ve` + exactly 10 controls disabled with reasons (undo/redo/Split/duplicate/delete/Import/Text/Save/Export…/＋ Import); empty media/preview/timeline copy all honest. → FEATURE_MATRIX "Honest states" now has Observed evidence for the UI half.
+- **Build gates green:** `tsc -p packages/app/tsconfig.json` exit 0 · `tsc -p packages/app/tsconfig.electron.json` exit 0 · `vite build` green (26 modules) · `npm run build -w @ve/engine` green. Root `npm run build` currently fails in `packages/templates` (Phase 4 mid-flight — coordinator already flagged as not-a-finding; untouched by me).
+
+**Changed / delivered (this session):**
+- **`packages/app/**` (all app/UI work):** design system (`tokens/base/components/shell/panels.css`), `keyboard-map.ts`, `states.ts`, `router.ts`, `app-shell.ts`, integration layer (`ve.ts` single engine-import site, `bridge.ts` incl. `getBridgeStatus`, `state.ts` UI store with UI-owned playhead per contract note 1, `commands.ts` shared toolbar/shortcut path), features (`home-view`, `media-bin`, `preview`, `timeline`, `inspector`, `toolbar`, `export-dialog`, `editor-view`), `main.ts`, `electron/main.ts` (envelope IPC `ve:invoke` — Electron strips custom props on thrown errors, so `{callId, ok, value|error}` envelopes; engine bootstrap; `--smoke`), `preload.cjs`, vite/tsconfigs.
+- **`docs/FEATURE_MATRIX.md`** — announce-then-edit honored: new subsection **"Phase 1 UI slice — Agent 2 (first team)"** (12 rows, +19 lines, verified via `git diff --stat`: insert-only, no other section touched; my announce entry is in `9040cb6`, swept by a concurrent agent's TEAM_STATUS commit — append-only, no harm).
+- **`docs/PROJECT_CONTRACT.md`** — my "Contract review notes" (items 1–11) were committed earlier by others; body untouched.
+- **`docs/TEAM_STATUS.md`** — baseline report, interface requirements, review replies, announcement, this handoff.
+
+**Correction to my announce entry:** second head's `scripts/fix-electron-install.mjs` writes `path.txt` via `writeFileSync` with **no** trailing newline — already safe. The `\n`-in-spawn-path ENOENT I hit came from shell `echo > path.txt`; only shell users must `printf`. (Their script was wired into npm scripts in `5e91db7`.)
+
+**Quarantine note:** second-team Agent 2's `timeline-view.ts` + `timeline.css` (built against my deleted pre-contract `services.ts`) are **committed here as quarantined preservation**, still **excluded from tsconfig** so builds stay green; canonical timeline is `features/timeline/timeline.ts` (see `features/timeline/README-ownership.md`). Do not import them; `services.ts` is recoverable from history (`44956db`).
+
+**Implemented vs partial vs planned:** *Implemented (Observed at boot):* shell/routing/bridge/honest-states/home render, engine round-trip, build gates. *Partial (UI code exists, flows unverified):* editor layout, media bin with live assets, preview playback, timeline engine-op flows (trim/split/move), inspector edits, export dialog live progress. *Planned/deferred:* waveform + asset thumbnails in the UI (packages exist, wiring deferred), copy/paste and keyboard-driven trim not implemented, text burn-in on export stays **Capability-gated OFF** (no freetype; SRT sidecar is the honest alternative — dialog reason wired), voiceover recording UI, effects UI wiring (`buildPreviewPlan` offer from Agent 2.5).
+
+**Did NOT touch:** `packages/engine/**`, `packages/effects/**`, `packages/templates/**`, `scripts/export-e2e.mjs` (+221 lines from another lane, left uncommitted), `scripts/fix-electron-install.mjs`, contract body, other agents' matrix rows.
+
+**Next useful step:** coordinator walkthrough can use `npm run verify:app-smoke` (already wired) as the boot gate; my remaining acceptance work is click-through of create→import→trim→export in the running app — needs the walk to run with me or a follow-up session.

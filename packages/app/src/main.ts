@@ -1,33 +1,56 @@
 /**
- * Renderer entry — mounts the shell, wires routing + global keyboard map.
+ * Renderer entry — mounts the shell, wires routing, engine events,
+ * and the global keyboard map to shared commands.
  *
- * Engine integration: subscribes to window.ve when present; when absent the
- * app still runs as an honest shell (all engine controls disabled with
- * reasons). Contract v1 integration extends this file — do not assume event
- * names beyond services.ts until the contract review notes are resolved.
+ * Engine coupling lives in ui/bridge.ts + ui/state.ts; this file is glue.
  */
 
 import "./ui/styles/tokens.css";
 import "./ui/styles/base.css";
 import "./ui/styles/components.css";
 import "./ui/styles/shell.css";
+import "./ui/styles/panels.css";
 
 import { createAppShell } from "./ui/shell/app-shell";
 import { createHomeView, type HomeView } from "./ui/features/home/home-view";
 import { createEditorView, type EditorView } from "./ui/features/editor/editor-view";
 import { currentRoute, onRouteChange, navigateTo, type RouteChange } from "./ui/router";
 import { resolveEvent, detectPlatform, groupedActions, describeBinding } from "./ui/interaction/keyboard-map";
-import { getServices, type EngineServices } from "./ui/services";
 import { notify } from "./ui/states/states";
+import { bridge } from "./ui/bridge.js";
+import {
+  wireEngineEvents, getState, selectAll, clearSelection, setTool,
+  setPlayhead, setPlaying,
+} from "./ui/state.js";
+import * as cmd from "./ui/commands.js";
 
 const shell = createAppShell();
 document.body.append(shell.root);
 
 const platform = detectPlatform();
-const services = getServices();
 
 let homeView: HomeView | null = null;
 let editorView: EditorView | null = null;
+
+/* ------------------------------------------------------------------ *
+ * Engine events → shell status
+ * ------------------------------------------------------------------ */
+
+if (bridge()) {
+  wireEngineEvents();
+  const { onEvent } = await import("./ui/bridge.js");
+  const { refreshState, verifyAssets } = await import("./ui/state.js");
+  onEvent("project:saved", () => {
+    shell.setDirty(false);
+    shell.announce("Project saved");
+  });
+  onEvent("project:change", ({ reason }) => {
+    if (reason === "load" || reason === "relink") void verifyAssets();
+  });
+  onEvent("assets:changed", () => void refreshState());
+} else {
+  shell.setStatus("Running without engine bridge", "error");
+}
 
 /* ------------------------------------------------------------------ *
  * View mounting
@@ -44,9 +67,6 @@ function mountView(route: RouteChange): void {
     editorView = createEditorView();
     shell.viewHost.append(editorView.root);
     document.title = "Reelwright — Editor";
-    if (!route.projectId && services) {
-      shell.setStatus("No project selected", "error");
-    }
   } else {
     homeView = createHomeView(shell.announce);
     shell.viewHost.append(homeView.root);
@@ -62,6 +82,18 @@ if (!window.location.hash) {
 } else {
   mountView(currentRoute());
 }
+
+// Dirty indicator sync
+let lastDirty: boolean | null = null;
+setInterval(() => {
+  const dirty = getState().state?.dirty ?? false;
+  if (dirty !== lastDirty) {
+    lastDirty = dirty;
+    shell.setDirty(dirty);
+  }
+  const busy = getState().busy;
+  if (busy) shell.setStatus(busy, "busy");
+}, 400);
 
 /* ------------------------------------------------------------------ *
  * Global keyboard handling
@@ -79,28 +111,165 @@ function isTextInput(target: EventTarget | null): boolean {
 }
 
 function dispatchAction(actionId: string): void {
+  const editorWidth = document.querySelector(".rw-editor")?.clientWidth ?? 1200;
   switch (actionId) {
+    // Project
+    case "project.new":
+      navigateTo({ view: "home" });
+      break;
+    case "project.open":
+      navigateTo({ view: "home" });
+      break;
+    case "project.save":
+      void cmd.saveProject();
+      break;
+    case "project.import":
+      void cmd.importMedia();
+      break;
+    case "export.open":
+      void (async () => {
+        const { openExportDialog } = await import("./ui/features/export-dialog/export-dialog.js");
+        await openExportDialog();
+      })();
+      break;
+    // Playback
+    case "playback.toggle":
+      cmd.togglePlay();
+      break;
+    case "playback.stop":
+      cmd.goStart();
+      break;
+    case "playback.frameBack":
+      cmd.stepFrame(-1);
+      break;
+    case "playback.frameFwd":
+      cmd.stepFrame(1);
+      break;
+    case "playback.jumpStart":
+      cmd.goStart();
+      break;
+    case "playback.jumpEnd":
+      cmd.goEnd();
+      break;
+    case "playback.nextEdit":
+    case "playback.prevEdit": {
+      const dir = actionId === "playback.nextEdit" ? 1 : -1;
+      seekToEditPoint(dir);
+      break;
+    }
+    // Editing
+    case "edit.undo":
+      void cmd.undo();
+      break;
+    case "edit.redo":
+      void cmd.redo();
+      break;
+    case "edit.split":
+      void cmd.splitAtPlayhead();
+      break;
+    case "edit.delete":
+      void cmd.deleteSelection();
+      break;
+    case "edit.duplicate":
+      void cmd.duplicateSelection();
+      break;
+    case "edit.selectAll":
+      selectAll();
+      break;
+    case "edit.copy":
+    case "edit.paste":
+      // Clipboard across projects is planned; say so honestly.
+      notify("info", "Copy/paste is not implemented yet — use Duplicate (⌘D).");
+      break;
+    case "edit.trimStart":
+    case "edit.trimEnd":
+      notify("info", "Keyboard trimming is not implemented yet — drag the clip edges in the timeline.");
+      break;
+    // Timeline
+    case "timeline.zoomIn":
+      cmd.zoomIn();
+      break;
+    case "timeline.zoomOut":
+      cmd.zoomOut();
+      break;
+    case "timeline.zoomFit":
+      cmd.zoomFit(editorWidth - 260);
+      break;
+    case "timeline.snapToggle":
+      cmd.toggleSnap();
+      break;
+    case "timeline.addTrack":
+      void (async () => {
+        const { call } = await import("./ui/bridge.js");
+        const { getState: gs } = await import("./ui/state.js");
+        const kind = gs().state?.project?.tracks.some((t) => t.kind === "audio") ? "video" : "audio";
+        try {
+          await call("timeline.addTrack", [kind]);
+        } catch (err) {
+          notify("error", err instanceof Error ? err.message : String(err));
+        }
+      })();
+      break;
+    // Tools / panels
+    case "tool.select":
+      setTool("select");
+      break;
+    case "tool.text":
+      setTool("text");
+      cmd.addTextClipAtPlayhead();
+      break;
+    case "panel.mediaBin":
+      focusPanel("rw-panel-bin");
+      break;
+    case "panel.timeline":
+      focusPanel("rw-panel-timeline");
+      break;
+    case "panel.inspector":
+      focusPanel("rw-panel-inspector");
+      break;
+    // General
     case "help.shortcuts":
       showShortcutSheet();
       break;
-    case "project.new":
-      navigateTo({ view: "home" });
-      if (services) notify("info", "Use “New project” on the home screen.");
-      break;
-    case "export.open":
-      notify("info", "Export dialog arrives with contract v1 integration.");
-      break;
     default:
-      // Engine-backed actions will be wired once the contract lands.
-      shell.announce(`Action ${actionId} not yet wired to the engine.`);
-      break;
+      shell.announce(`Action ${actionId} has no handler yet.`);
+  }
+}
+
+function focusPanel(id: string): void {
+  const node = document.getElementById(id);
+  if (node) node.focus();
+}
+
+function seekToEditPoint(dir: 1 | -1): void {
+  const s = getState();
+  const points = new Set<number>([0]);
+  for (const t of s.state?.project?.tracks ?? []) {
+    for (const c of t.clips) {
+      points.add(c.start);
+      points.add(c.start + c.duration);
+    }
+  }
+  const sorted = [...points].sort((a, b) => a - b);
+  const cur = s.playhead;
+  let target: number | null = null;
+  if (dir === 1) {
+    for (const p of sorted) {
+      if (p > cur + 1) { target = p; break; }
+    }
+  } else {
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      if (sorted[i] < cur - 1) { target = sorted[i]; break; }
+    }
+  }
+  if (target !== null) {
+    setPlaying(false);
+    setPlayhead(target, { snapToFrame: true });
   }
 }
 
 window.addEventListener("keydown", (e) => {
-  // Never swallow browser devtools / system combos.
   if (e.ctrlKey && e.shiftKey && ["I", "J", "C"].includes(e.key.toUpperCase())) return;
-
   const action = resolveEvent(e, platform, { inTextInput: isTextInput(e.target) });
   if (!action) return;
   e.preventDefault();
@@ -128,9 +297,7 @@ function showShortcutSheet(): void {
       const label = document.createElement("span");
       label.textContent = a.label;
       const keys = document.createElement("kbd");
-      keys.textContent = a.bindings
-        .map((b) => describeBinding(b.key, platform))
-        .join(" / ");
+      keys.textContent = a.bindings.map((b) => describeBinding(b.key, platform)).join(" / ");
       row.append(label, keys);
       col.append(row);
     }
@@ -175,7 +342,6 @@ function showShortcutSheet(): void {
       return;
     }
     if (e.key === "Tab") {
-      // simple focus trap
       const focusables = panel.querySelectorAll<HTMLElement>(
         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
       );
@@ -200,36 +366,4 @@ function showShortcutSheet(): void {
   dialog.append(panel);
   document.body.append(dialog);
   close.focus();
-}
-
-/* ------------------------------------------------------------------ *
- * Engine bridge presence — reflect honestly in status bar
- * ------------------------------------------------------------------ */
-
-if (!services) {
-  shell.setStatus("Running without engine bridge", "error");
-} else {
-  wireEngine(services);
-}
-
-function wireEngine(ve: EngineServices): void {
-  ve.on("project:dirty", () => shell.setDirty(true));
-  ve.on("project:saved", () => {
-    shell.setDirty(false);
-    shell.announce("Project saved");
-  });
-  ve.on("error", ({ scope, message, detail }) => {
-    shell.setStatus(message, "error");
-    notify("error", `${scope}: ${message}`, detail ? { detail } : {});
-  });
-  ve.on("export:progress", ({ pct, stage }) => {
-    shell.setStatus(`${stage} — ${Math.round(pct * 100)}%`, "busy");
-  });
-  ve.on("export:completed", ({ outputPath }) => {
-    shell.setStatus("Export complete", "normal");
-    notify("success", `Exported to ${outputPath}`);
-  });
-  ve.on("import:progress", ({ done, total }) => {
-    shell.setStatus(`Importing ${done}/${total}…`, "busy");
-  });
 }

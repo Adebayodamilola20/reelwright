@@ -35,16 +35,27 @@ Platform for Phase 1+ = macOS first (Designed); core is platform-neutral TypeScr
 | Stickers (original/generated assets) | Planned | asset pipeline | Documented |
 | Caption/subtitle styling | Planned | text overlay + export path | Documented |
 
-## Phase 3 — audio & captions (Planned)
+## Phase 3 — audio & captions
+
+Rows maintained by Agent 3 (`packages/audio`); detailed honesty table in `packages/audio/README.md`. Status vocabulary as above.
 
 | Feature | Status | Dependencies | Evidence |
 |---|---|---|---|
-| Waveform display | Planned | peaks extraction (ffmpeg/astats — unverified) | Documented |
-| Voiceover recording | Planned | mic capture (Electron) | Documented |
+| Waveform peaks extraction (`computeWaveform`, min/max buckets) | Implemented (package; UI wiring pending) | local ffmpeg/ffprobe 8.1.1 (Observed: s16le decode) | Observed (tests on ffmpeg-generated wav/mp3/mp4 fixtures; video-only asset fails honestly) |
+| Waveform sidecar cache (`waveformCached`, JSON + fingerprint invalidation) | Implemented (package; engine/UI wiring proposed) | Node fs only | Designed (unit-tested) |
+| Sidecar SRT export from text clips (`buildSrt`/`writeSrtFile`) — honest alternative to gated text burn-in | Implemented (package; `exportMedia.exportSrt` proposed to contract) | none (pure Node) | Designed (unit-tested; ±0.5 ms tick→ms quantization documented) |
+| Clip volume → ffmpeg `volume` filter mapping (`planClipAudio`) | Implemented (package; export-plan wiring = Agent 1) | local ffmpeg `volume` (Observed) | Observed (filter strings) + Designed (wiring proposal) |
+| Clip fadeIn/fadeOut → ffmpeg `afade` mapping (tick-exact) | Implemented (package; export-plan wiring = Agent 1) | local ffmpeg `afade` (Observed) | Observed (filter strings) |
+| Speed ≠ 1/1 audio (atempo chains) | Capability-gated | — | Designed (UNSUPPORTED_FEATURE + reason; matches contract export gate) |
+| Noise cleanup profiles: light / hum-removal / standard / strong | Implemented (package) | local ffmpeg `highpass`/`lowpass`/`bandreject`/`afftdn` (Observed present; runtime-probed, gated elsewhere) | Observed (integration test on noisy fixture) |
+| Voiceover recording data path (chunked PCM → WAV/MP3, exact ticks) | Implemented (package; Electron getUserMedia capture = Agent 2, IPC contract documented) | Node (WAV) + libmp3lame (Observed) for MP3 | Designed (unit-tested session lifecycle) |
+| Voiceover → contract-shaped timeline clip (`voiceoverClipFromRecording`) | Implemented (package) | — | Designed |
 | Music bed / loop controls | Planned | audio tracks | Documented |
-| Noise cleanup | Planned | ffmpeg filters (local set Observed; afftdn unverified) | Documented |
-| Speech transcription → captions | Planned | local STT provider interface (no provider approved) | Documented |
+| Transcription provider interface + honest stub | Implemented (package) | none | Designed (`available:false` + reason by default; no network code) |
+| Local whisper.cpp detection (`detectLocalWhisper`) | Implemented (detection only) | whisper-cli on PATH + ggml models (shallow local scan) | Observed (this machine: `whisper-cli` at /usr/local/bin, no models → provider stays off with that exact reason) |
+| Speech transcription → captions pipeline | Planned (provider-gated) | local model or owner-approved service | Designed (would emit `SrtCue[]` → `buildSrt`; no network in v1) |
 | Speech tools (isolate/enhance) | Planned | provider interface, owner approval for paid services | Documented |
+| Burned-in caption export / caption styling on export | Capability-gated | local ffmpeg lacks freetype/libass (Observed) | Observed (SRT sidecar is the shipped alternative; preview-side styling unaffected) |
 
 ## Phase 4 — templates & AI tools (Planned; all provider-gated)
 

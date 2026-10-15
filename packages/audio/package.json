@@ -1,0 +1,25 @@
+{
+  "name": "@ve/audio",
+  "version": "0.0.1",
+  "description": "Reelwright audio & captions package (Phase 3): waveform peaks, sidecar SRT export, clip-audio → ffmpeg filter mapping, voiceover data path, noise cleanup, transcription provider gating. No Electron/DOM dependencies; Node stdlib + local ffmpeg only.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test \"dist/test/*.test.js\""
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

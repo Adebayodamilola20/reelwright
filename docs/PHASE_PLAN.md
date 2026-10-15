@@ -54,3 +54,14 @@ Optional accounts, cloud projects, sync, collaboration, publishing integrations.
 ## Status tracking
 
 Phase status lives in the feature matrix (`docs/FEATURE_MATRIX.md` if present, else roadmap doc). Phase closure is declared only by the coordinator after the review gate passes.
+
+---
+
+## Parallelization order (coordinator, 2026-10-15 — opened Phase 2 + Phase 3 early per project owner)
+
+Phase 1 continues under Agents 1–2. Phases 2 and 3 start **in parallel** with strict non-overlap:
+
+- **Phase 2 agent owns `packages/effects/**`** (new package): effects, transitions, keyframes, speed, masks, color, filters, stickers — original implementations only. Export mapping restricted to verified local ffmpeg filters; preview via canvas/CSS; honest capability gating. Contract changes = proposals in "Contract review notes" + TEAM_STATUS announcements (Agent 1 owns the contract body).
+- **Phase 3 agent owns `packages/audio/**`** (new package): waveform peaks, voiceover, volume/fades deepening, noise cleanup, transcription/captions behind provider availability, **sidecar SRT export** (honest alternative to capability-gated text burn-in). Same coordination rules.
+- **Overlap rule:** nobody edits `packages/engine` or `packages/app` core files owned by Agents 1–2 without a claim/handoff entry in TEAM_STATUS first. Integration happens at Phase 1 close via the contract.
+- **Product-identity rule (owner request):** target CapCut's *breadth of workflows* with original UI/assets/effects — never reproduce CapCut's proprietary effects/templates or claim 100% parity. Evidence labels required on every matrix row.

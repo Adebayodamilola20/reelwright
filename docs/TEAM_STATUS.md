@@ -158,6 +158,12 @@ None of this touches engine code; it compiles standalone once you scaffold the w
 - **COMMIT RULE (new, applies to everyone):** repo now has a baseline commit (`44956db`). From here on, **each agent commits your own increments** (`git add <your files> && git commit -m "<area>: what changed"`) — do NOT `git add -A` (you'd stage another agent's half-finished work). This gives us review diffs and rollback. I checkpoint periodically.
 - No ownership changes; all review findings are advisory until each phase's gate.
 
+### COORDINATOR — Phase 2 + Phase 3 OPENED (2026-10-15, per project owner)
+
+- Two new agents launching: **Phase 2 agent** → owns `packages/effects/**` (effects/transitions/keyframes/speed/masks/color/filters/stickers, original implementations). **Phase 3 agent** → owns `packages/audio/**` (waveforms, voiceover, noise cleanup, transcription/captions, sidecar SRT export).
+- Agents 1–2: your ownership unchanged; contract body still Agent 1's. Phase 2/3 agents must post proposals in "Contract review notes" + announce here — they will not edit `packages/engine` or `packages/app` files without claiming here first.
+- All: commit only your own files (rule above). Product target = CapCut's workflow **breadth** with original code/UI/assets — no copied effects/templates, no parity claims without evidence.
+
 ---
 
 ### Agent 1 (second team, session `ses_ebfaed11effepfC0PS6z681S3E`) — CONVERGED HERE (2026-10-15 17:45)
@@ -225,3 +231,44 @@ The project owner appointed this session **second head**: I make direct changes 
 6. **time.ts fix:** second-team Agent 1's documented `parseTimecode` NTSC round-trip fix — canonical Agent 1: apply it in your next increment or I will, verified by `node scripts/verify-timebase.mjs` (currently 39/40, this is the red).
 
 **My Phase-1 review in progress** — findings will be appended to `docs/REVIEW_LOG.md`, not here.
+
+## Agent 3 (Phase 3, `packages/audio`) log
+
+### Agent 3 — baseline report (2026-10-15)
+
+**What exists (Observed):** Phases 1–2 actively building (`packages/engine` Agent 1, `packages/app` Agent 2, `packages/effects` Phase 2 agent per plan). Contract v1 ready; `docs/FEATURE_MATRIX.md` not yet on disk.
+
+**What I own (per Phase 3 opening):** `packages/audio/**` (`@ve/audio`) — waveform peaks, sidecar SRT export, volume/fades → ffmpeg mapping, voiceover data path + storage, noise cleanup (ffmpeg), transcription/captions behind provider availability. No edits to `packages/engine/**` or `packages/app/**`; contract/UI integration goes through proposals in "Contract review notes" + announcements here.
+
+**What I'll change:** create `packages/audio` (new workspace package, zero runtime dependencies — Node stdlib + local ffmpeg only); append my rows to `docs/FEATURE_MATRIX.md` (will create it if still absent, with a Phase-1 section stub left for the second head's rows); append "Contract review notes (Agent 3)" to the contract; add my entries here.
+
+**Design decisions I'm making without escalation (charter: sensible defaults):** (a) `@ve/audio` does **not** import `@ve/engine` — it mirrors the contract's shapes structurally (ticks, ClipAudio, text clips) so it builds/tests standalone and the engine adopts it without version coupling; (b) tests use `node:test` like the engine (no new deps, no `npm install` run — per second head's warning); (c) waveform PCM decode target 8 kHz mono s16le by default (enough for UI peaks; configurable), sidecar = JSON with source fingerprint for cache invalidation.
+
+**Decisions I need:** none blocking. For Agent 1: contract-review notes below propose exact signatures (`assets.waveform`, `exportMedia.exportSrt`, clip audio filter-chain hook, voiceover ingest). For Agent 2: voiceover IPC contract (session/append/finalize) documented in `packages/audio/README.md` — wire `getUserMedia` capture to it when ready.
+
+**Increment 1 — actions completed (2026-10-15):**
+1. Workspace repaired (`.bin` restored via `npm install`; root build runs again).
+2. **`parseTimecode` NTSC fix APPLIED** (second head) in `packages/engine/src/time.ts` — nominal-rate conversion + `ff >= nominal` rejection → **verifier 41/41 green**. Canonical Agent 1: review in your next increment.
+3. `docs/ROADMAP.md` + `docs/FEATURE_MATRIX.md` created (Phase-1 acceptance items). Status discipline: `In progress (unverified)` → `Implemented` only after a head's acceptance run.
+4. `docs/REVIEW_LOG.md` — my **Review #2** posted: **F8 = `packages/app/electron/main.ts` fails tsc (17 implicit-any + 2 TS2339) — canonical Agent 2 to fix at your increment boundary, or I patch it.**
+5. Committing my files only (`time.ts`, `docs/*`, lockfile) — **agents: commit your own increments** (F1 standing rule).
+6. **Team-2 Agent 1:** your bug fix is in and your slice request is answered — see your session handoff (verification/E2E lane assigned; engine code read-only for you).
+
+## Agent 2.5 (Phase 2, `packages/effects`) log
+
+### Agent 2.5 — baseline report (2026-10-15)
+
+**What exists (Observed):** Phases 1 actively building (`packages/engine` Agent 1, `packages/app` Agent 2); `packages/audio` Agent 3 claimed. Contract v1 ready; `docs/ROADMAP.md` + `docs/FEATURE_MATRIX.md` created by second head; engine build green after `providers/` + `parseTimecode` fix landed.
+
+**What I own (per coordinator Phase 2 opening):** `packages/effects/**` (`@ve/effects`) — effects/filters library (preview + export mappings), transitions, keyframe evaluator, speed helpers, masks, color adjustments, original stickers, filter presets. No edits to `packages/engine/**` or `packages/app/**`; contract/UI integration only via proposals in "Contract review notes" + announcements here.
+
+**What I'll change:** create `packages/effects` (new workspace package); update Phase-2 rows in `docs/FEATURE_MATRIX.md`; append "Contract review notes (Agent 2.5)" to the contract; add entries here. Commit only my files.
+
+**Design decisions I'm making without escalation (charter: sensible defaults):**
+(a) `@ve/effects` does **not** import `@ve/engine` — it mirrors the contract's shapes structurally (Ticks/Rational/Clip/Keyframe/Easing, EngineErrorShape) so it builds/tests standalone and never goes red because of engine churn; convergence to type-only imports proposed in contract review notes.
+(b) Tests via `node:test` on compiled output (same pattern as engine), no new dependencies — per second head's no-concurrent-`npm install` rule.
+(c) Every effect = one registry entry with THREE implementations/claims kept honest: preview (CSS filter or pure-function canvas math), export (ffmpeg filter chain, runtime-probed), and availability check. Effects whose export mapping is unavailable fail with `UNSUPPORTED_FEATURE` + hint — never silently dropped.
+(d) **ffmpeg probe already run (Observed, this environment):** `gblur, boxblur, unsharp, eq, hue, colorchannelmixer, colorbalance, colortemperature, colorlevels, vignette, negate, scale, rgbashift, chromashift, geq, format, fade, xfade (58 transitions incl. wipeleft/right/up/down, fadeblack, dissolve), setpts, atempo, crop, pad, concat, overlay, color, amix, afade, volume, trim, atrim` — all present. Standalone `wipe*` filters absent (wipe transitions go through `xfade`). Runtime re-probe still mandatory for honest gating on other machines.
+(e) Stickers = original procedural SVG graphics (no copied assets). Preview works; **export is capability-gated OFF** until a rasterization path exists (no SVG rasterizer in engine; honest `UNSUPPORTED_FEATURE` + hint).
+
+**Decisions I need:** none blocking. For Agent 1: contract review notes propose `Clip.effects`, `Clip.mask`, `Clip.transitionIn`, extended `Keyframe.prop`, and consumption APIs for keyframe streams + export filter chains. For Agent 2: effects/transition inspector + preview canvas hooks documented in `packages/effects/README.md`.

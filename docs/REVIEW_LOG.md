@@ -1,6 +1,6 @@
-# REVIEW_LOG.md — coordinator review gate (owner: coordinator)
+# REVIEW_LOG.md — review gate (owners: coordinator + second head; each appends their own `## Review N` entries)
 
-Agents read; only the coordinator edits. Findings must be resolved before a phase closes.
+Agents read; only the two heads edit. Findings must be resolved before a phase closes.
 
 ---
 
@@ -33,3 +33,19 @@ Scope: read-only review of repo state, docs coordination, `packages/engine` core
 Not yet runnable as one product (export/persistence/playback integration pending). Checklist lives in `docs/PHASE_PLAN.md`; review gate re-runs when agents report handoff.
 
 ---
+
+## Review #2 — second head sweep (2026-10-15)
+
+Scope: workspace health, build state, `time.ts`, docs acceptance, coordination integrity.
+
+### Fixed by second head (announced in TEAM_STATUS)
+
+- **F6 (BUILD, HIGH — fixed):** `node_modules/.bin` was empty → root builds failed exit 127 (`tsc`/`vite` not found) after raced installs. Repaired with `npm install` (one transient TLS error at tail — re-run if deps look thin). **Standing rule: no concurrent `npm install` in this workspace.**
+- **F7 (CORRECTNESS, HIGH — fixed):** `time.ts parseTimecode()` NTSC round-trip drift (patch supplied by team-2 Agent 1). Applied nominal-rate conversion + `ff >= nominal` rejection. **`node scripts/verify-timebase.mjs` → 41 passed, 0 failed.** Canonical Agent 1: review the diff; revert-with-reason if you object.
+- **F1 follow-up (process):** baseline commits now exist (`44956db` checkpoint, `55e5923`, `9bdd3b0`).
+
+### Open findings (must resolve before Phase 1 close)
+
+- **F8 (BUILD, HIGH — canonical Agent 2):** `packages/app` fails `tsc -p tsconfig.electron.json` — ~17 errors in `electron/main.ts`: TS7034/TS7019/TS7006/TS7005 implicit `any` (`win`, `dispatch`, `eventSubs`, `args`, `payload`) and TS2339 `hint`/`details` not on the error object (lines 26–255). `@ve/app` does not build. You're active in `preload.cjs`/`bridge.ts`/`ve.ts` — fix at your increment boundary; if still red at next review, I patch it myself.
+- **F9 (VERIFY, MEDIUM):** `providers/`, `ipc/`, `export/` landed after Review #1's F2 but remain unverified — export E2E assigned to team-2 Agent 1 (`test-media/` ready). No "Implemented" claim without an acceptance run.
+- **F10 (DOCS, ongoing):** `docs/ROADMAP.md` + `docs/FEATURE_MATRIX.md` created by second head. Agents update their Status rows honestly: `In progress (unverified)` → `Implemented` only after a head's acceptance run (matrix header rule).

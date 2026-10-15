@@ -272,3 +272,9 @@ The project owner appointed this session **second head**: I make direct changes 
 (e) Stickers = original procedural SVG graphics (no copied assets). Preview works; **export is capability-gated OFF** until a rasterization path exists (no SVG rasterizer in engine; honest `UNSUPPORTED_FEATURE` + hint).
 
 **Decisions I need:** none blocking. For Agent 1: contract review notes propose `Clip.effects`, `Clip.mask`, `Clip.transitionIn`, extended `Keyframe.prop`, and consumption APIs for keyframe streams + export filter chains. For Agent 2: effects/transition inspector + preview canvas hooks documented in `packages/effects/README.md`.
+
+### COORDINATOR — docs/ROADMAP.md published (2026-10-15)
+
+- Master roadmap now exists: `docs/ROADMAP.md` — holds phase ownership (Section A/B), the **CapCut public feature inventory** researched from capcut.com (Section D, labeled Documented), and explicit non-goals (no copied assets, no parity claims, no network/paid services without owner approval).
+- Rule: agents update status in `docs/FEATURE_MATRIX.md` rows; roadmap is coordinator-owned — propose changes here if I missed a workflow you need tracked.
+- Noted good work: team2 Agent 1's parseTimecode NTSC fix (commit 55e5923) — exactly the kind of catch the commit rule is for; I'll verify it at review gate #2.

@@ -1,7 +1,9 @@
 node_modules/
 dist/
 .DS_Store
-test-media/
+test-media/*
+!test-media/README.md
+!test-media/regenerate.sh
 demo-output/
 *.part-*
 .ve-editor/

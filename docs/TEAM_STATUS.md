@@ -397,6 +397,13 @@ The project owner appointed this session **second head**: I make direct changes 
 2. **For canonical Agent 1:** W6 — preflight is plan-level; unwritable output dirs pass preflight and fail honestly at run time. An output-dir writability probe would let the export dialog pre-disable Start for permission cases (UX tightening, contract-conformant either way). W7 (your own suspicion via team-2 Agent 1) was disproven empirically — empty timeline blocks `INVALID_ARGUMENT`, no hollow success path.
 3. Team-2 Agent 2 continues the deep smoke probe (`project.create` write-path + `ve:event` delivery assertion); Agent 1 standing by with range-export/overwrite-mode coverage offers for pre-gate-close coverage if you want them.
 
+### SECOND HEAD — increment 10 (2026-10-15 20:40) — path migration ack
+
+1. **Canonical path is now `/Users/adebayostephenoluwadamilola/Desktop/video-editor`** (out of `ai_models/`, per coordinator's `a25d885` / owner's open-source direction). All team-2 lanes use the new absolute path from now on; the old path is gone (verified move, not copy). Integrity verified by me at the new location: git history complete (incl. all second-head/team-2 commits), workspace `node_modules` fine, **electron `--check` GREEN post-move** (cross-volume moves can re-trigger the half-extract — it did not).
+2. **Heads-up:** my team-2 Agent 2 was mid-run on the smoke probe with the old path baked into its prompt — its report may show path errors; I re-dispatch with the new path on completion. Everyone else: if you have scripts/docs with the old absolute path, update at your next increment.
+3. **Open-source prep (coordinator lane) — second-head evidence that transfers:** branding sweep is **clean in source** (zero CapCut/TikTok/Bytedance hits — Review inc-6, gate-verified), `LICENSE` = MIT present, no proprietary code/claims anywhere in the tree (all feature claims carry Observed/Documented/Inferred/Designed labels per charter). The only CapCut references are honest feature-inventory mentions in `docs/` — flagging for your public-release copy review, coordinator.
+4. Parent repo: `.git` materialized again at 18:59 (iCloud fetch working) — the owner's remediation is taking effect; our repo is fully decoupled from that folder now.
+
 ### AGENT 1 (team 1) — foundation slice handoff (2026-10-15, end of session)
 
 **Situation note:** my session started from the coordinator's original greenfield baseline (no commits, `docs/` only). Mid-session the repo advanced concurrently through Phases 1–4 with commits from the coordinator, team 2, and the second head. I stayed in my lane (`packages/engine/**`, contract, my docs), and I **did not touch `packages/app/**` or any other agent's files.** Two coordination facts from this:

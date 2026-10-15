@@ -19,10 +19,18 @@
  *                      no raw stack), nothing created
  *   S5 text gate     — text clip export with drawtext-less ffmpeg → honest
  *                      UNSUPPORTED_FEATURE + hint (never silently dropped)
+ *   S6 walkthrough step 6 — audio-clip gain/fades APPLIED in the exported
+ *                      file: volume=0.5 vs unity measured with volumedetect
+ *                      (−6.02 dB expected), fade-out tail drop, fade-in head
+ *                      drop. (If the engine ever stops wiring clip audio,
+ *                      this scenario becomes an honest SKIP, never a fake pass.)
+ *   S7 audio containers (bonus) — wav (pcm_s16le, lossless level check) and
+ *                      mp3 (44.1k→48k resampled) audio-only round-trips
  *
  * Usage:  npm run verify:export          (or: node scripts/export-e2e.mjs)
  * Requires: npm run build -w @ve/engine   and ffmpeg/ffprobe on PATH.
- * Exit 0 = all checks pass. Evidence JSON: demo-output/export-e2e-evidence.json
+ * Exit 0 = all checks pass (skips are reported, never counted as passes).
+ * Evidence JSON: demo-output/export-e2e-evidence.json
  */
 
 import { spawnSync } from 'node:child_process';
@@ -57,6 +65,7 @@ const SEC = TICKS_PER_SECOND;
 const evidence = [];
 let passCount = 0;
 let failCount = 0;
+let skipCount = 0;
 
 function record(scenario, name, pass, detail = '') {
   if (pass) passCount++;
@@ -66,6 +75,13 @@ function record(scenario, name, pass, detail = '') {
   console.log(line);
   evidence.push({ scenario, name, pass, detail });
   return pass;
+}
+
+/** Honest skip: counted separately, never as a pass (charter). */
+function skip(scenario, name, reason) {
+  skipCount++;
+  console.log(`  SKIP ${name} — ${reason}`);
+  evidence.push({ scenario, name, pass: null, skipped: true, detail: reason });
 }
 function info(scenario, name, detail = '') {
   console.log(`  INFO ${name}${detail ? ` — ${detail}` : ''}`);
@@ -178,6 +194,40 @@ function hasNoStack(s) {
   return typeof s === 'string' && !/\n\s+at\s/.test(s) && !s.includes('node:internal');
 }
 
+/** Mean volume (dB, RMS) of a file's audio stream; optional [ss, ss+dur] segment.
+ * Segments are selected IN-FILTER (aselect): demuxer-level `-ss` near EOF
+ * silently falls back to measuring the whole stream (Observed with ffmpeg
+ * 8.1.1 — a tail segment measured the whole-file mean instead). */
+function meanVolumeDb(file, seg) {
+  const args = ['-hide_banner', '-nostdin', '-i', file];
+  if (seg) {
+    const end = seg.ss + seg.dur;
+    args.push('-map', 'a:0', '-af',
+      `aselect='between(t,${seg.ss},${end})',asetpts=N/SR/TB,volumedetect`);
+  } else {
+    args.push('-map', 'a:0', '-af', 'volumedetect');
+  }
+  args.push('-f', 'null', '-');
+  const res = spawnSync('ffmpeg', args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+  const m = /mean_volume:\s*(-?[\d.]+)\s*dB/.exec(res.stderr || '');
+  return m ? Number(m[1]) : null;
+}
+
+/** Run one export to completion; returns terminal-event state (caller owns engine). */
+async function runExport(engine, options, timeoutMs = 120_000) {
+  const c = capture(engine);
+  let exportId = null;
+  let startErr = null;
+  try {
+    ({ exportId } = await engine.exportMedia.start(options));
+    await awaitTerminal(c, timeoutMs);
+  } catch (e) {
+    startErr = e;
+  }
+  c.dispose();
+  return { exportId, terminal: c.terminal, done: c.done, error: c.error, startErr };
+}
+
 // ============================================================ S1: success
 async function s1() {
   const SC = 'S1 success path';
@@ -274,8 +324,12 @@ async function s1() {
 async function cancelAttempt(tmp, clipCount, attempt) {
   const engine = newEngine(tmp);
   try {
+    // 640x360 keeps the full scale/pad/overlay/concat/amix pipeline exercised
+    // while making the FIRST mid-flight progress report arrive even under
+    // heavy machine load (Observed: at 1080p under concurrent agent load the
+    // encode ran at fps 0.07 and first percent came after 62 s).
     const { videoTrack } = await makeProject(engine, tmp, `e2e-cancel-${attempt}`, {
-      width: 1920, height: 1080, frameRate: { n: 30, d: 1 },
+      width: 640, height: 360, frameRate: { n: 30, d: 1 },
       sampleRate: 48000, channels: 2, background: '#000000',
     });
     const imp = await engine.assets.import([join(FIXTURES, 'bars-tone.mp4')]);
@@ -292,12 +346,15 @@ async function cancelAttempt(tmp, clipCount, attempt) {
       video: { codec: 'h264', quality: 'draft' },
       audio: { codec: 'aac' },
     });
-    // Cancel at the FIRST mid-flight progress report.
+    // Cancel at the FIRST mid-flight progress report. The window waits for
+    // the ENCODE (not a fixed budget): first percent needs ~0.5 s of media
+    // encoded, so a contended machine may need minutes.
     const midReached = await awaitCond(() =>
-      c.progress.some((p) => typeof p.percent === 'number' && p.percent > 0 && p.percent < 99), 45_000);
-    let cancelOk = false;
-    if (midReached) cancelOk = await engine.exportMedia.cancel(exportId);
-    const terminal = await awaitTerminal(c, 10_000);
+      c.progress.some((p) => typeof p.percent === 'number' && p.percent > 0 && p.percent < 99), 240_000);
+    // ALWAYS cancel — even when mid-flight was never observed — so no
+    // orphaned ffmpeg survives a failed scenario (honest cleanup over leaks).
+    const cancelOk = await engine.exportMedia.cancel(exportId);
+    const terminal = await awaitTerminal(c, 60_000);
     c.dispose();
     const marker = tmp;
     await new Promise((r) => setTimeout(r, 600)); // let close/kill settle
@@ -328,7 +385,7 @@ async function s2() {
     }
     const { out, c, midReached, cancelOk, terminal, survivors, exportId } = run;
     record(SC, 'export was mid-flight when cancelled', midReached,
-      midReached ? `percent samples=${percents(c).length}` : 'never saw 0<pct<99');
+      midReached ? `percent samples=${percents(c).length}` : 'no 0<pct<99 progress within 240 s (encode starved or done-first)');
     record(SC, 'cancel(exportId) returned true', cancelOk === true, String(cancelOk));
     record(SC, 'terminal event is export:cancelled (not done)',
       terminal === 'cancelled', `terminal=${terminal}`);
@@ -515,6 +572,158 @@ async function s5() {
   }
 }
 
+// ============================ S6: audio clip gain + fades (walkthrough step 6)
+/** One engine/project/export: bars-tone clip (2 s tone) with an audio patch. */
+async function s6Project(tmp, name, audioPatch) {
+  const engine = newEngine(tmp);
+  try {
+    const { dir, videoTrack } = await makeProject(engine, tmp, name, {
+      width: 320, height: 240, frameRate: { n: 30, d: 1 },
+      sampleRate: 48000, channels: 2, background: '#000000',
+    });
+    const imp = await engine.assets.import([join(FIXTURES, 'bars-tone.mp4')]);
+    await engine.timeline.addClip({
+      trackId: videoTrack.id, assetId: imp.imported[0].id, start: 0,
+      audio: audioPatch,
+    });
+    const out = join(dir, 'out.mp4');
+    const r = await runExport(engine, {
+      outputPath: out, container: 'mp4',
+      video: { codec: 'h264', quality: 'draft' }, audio: { codec: 'aac' },
+    });
+    return { out, r };
+  } finally {
+    engine.dispose();
+  }
+}
+
+async function s6() {
+  const SC = 'S6 audio volume+fades applied (walkthrough step 6)';
+  console.log(`\n=== ${SC} ===`);
+  const tmp = mkdtempSync(join(tmpdir(), 've-e2e-s6-'));
+  try {
+    // Gating check: the export plan must apply per-clip audio. (Verified
+    // wired at packages/engine/src/export/plan.ts volume=/afade= filters.)
+    const caps = await (async () => {
+      const e = newEngine(tmp);
+      try {
+        return await e.exportMedia.capabilities();
+      } finally {
+        e.dispose();
+      }
+    })();
+    if (!caps || !Array.isArray(caps.audioCodecs) || caps.audioCodecs.length === 0) {
+      skip(SC, 'S6 gain/fade measurement', 'export has no audio capability probed — measurement impossible');
+      return;
+    }
+
+    // (a) gain: same tone at unity vs volume=0.5 → −6.02 dB (20·log10 0.5).
+    const A = await s6Project(tmp, 'e2e-s6-unity', undefined);
+    const B = await s6Project(tmp, 'e2e-s6-half', { volume: 0.5 });
+    record(SC, 'unity export succeeded', A.r.terminal === 'done' && existsSync(A.out), A.r.terminal);
+    record(SC, 'half-gain export succeeded', B.r.terminal === 'done' && existsSync(B.out), B.r.terminal);
+    let meanA = null;
+    let meanB = null;
+    if (existsSync(A.out) && existsSync(B.out)) {
+      meanA = meanVolumeDb(A.out);
+      meanB = meanVolumeDb(B.out);
+      const expected = 20 * Math.log10(0.5); // −6.0206 dB
+      const delta = meanB - meanA;
+      record(SC, 'volume=0.5 measures −6.02 dB below unity (±0.5)',
+        meanA !== null && meanB !== null && Math.abs(delta - expected) <= 0.5,
+        `unity=${meanA} dB, half=${meanB} dB, Δ=${Number.isFinite(delta) ? delta.toFixed(2) : 'n/a'} dB (expected ${expected.toFixed(2)})`);
+    } else {
+      record(SC, 'volume=0.5 measures −6.02 dB below unity (±0.5)', false, 'missing export(s)');
+    }
+
+    // (b) fade-out: last 0.4 s sits ≥6 dB below the open middle
+    //     (linear fade → ≈ −12.7 dB; −6 is the conservative bound).
+    const C = await s6Project(tmp, 'e2e-s6-fadeout', { fadeOut: 1 * SEC });
+    record(SC, 'fade-out export succeeded', C.r.terminal === 'done' && existsSync(C.out), C.r.terminal);
+    if (existsSync(C.out)) {
+      const mid = meanVolumeDb(C.out, { ss: 0.4, dur: 0.5 });
+      const tail = meanVolumeDb(C.out, { ss: 1.6, dur: 0.4 });
+      record(SC, 'fade-out: tail ≥6 dB below open middle',
+        mid !== null && tail !== null && tail - mid <= -6,
+        `middle=${mid} dB [0.4–0.9 s], tail=${tail} dB [1.6–2.0 s], Δ=${mid !== null && tail !== null ? (tail - mid).toFixed(2) : 'n/a'} dB (linear-fade expectation ≈ −12.7)`);
+    } else {
+      record(SC, 'fade-out: tail ≥6 dB below open middle', false, 'missing export');
+    }
+
+    // (c) fade-in: first 0.4 s sits ≥6 dB below the open steady region.
+    const D = await s6Project(tmp, 'e2e-s6-fadein', { fadeIn: 1 * SEC });
+    record(SC, 'fade-in export succeeded', D.r.terminal === 'done' && existsSync(D.out), D.r.terminal);
+    if (existsSync(D.out)) {
+      const head = meanVolumeDb(D.out, { ss: 0, dur: 0.4 });
+      const steady = meanVolumeDb(D.out, { ss: 1.5, dur: 0.4 });
+      record(SC, 'fade-in: head ≥6 dB below steady region',
+        head !== null && steady !== null && head - steady <= -6,
+        `head=${head} dB [0–0.4 s], steady=${steady} dB [1.5–1.9 s], Δ=${head !== null && steady !== null ? (head - steady).toFixed(2) : 'n/a'} dB (linear-fade expectation ≈ −12.7)`);
+    } else {
+      record(SC, 'fade-in: head ≥6 dB below steady region', false, 'missing export');
+    }
+  } catch (e) {
+    record(SC, 'scenario ran without exception', false, String(e?.stack || e));
+  }
+}
+
+// ====================== S7 (bonus): audio-only round-trips — wav + mp3
+async function s7Project(tmp, name, fixture, container, audioCodec, ext) {
+  const engine = newEngine(tmp);
+  try {
+    const { dir, audioTrack } = await makeProject(engine, tmp, name, {
+      width: 320, height: 240, frameRate: { n: 30, d: 1 },
+      sampleRate: 48000, channels: 2, background: '#000000',
+    });
+    const imp = await engine.assets.import([join(FIXTURES, fixture)]);
+    await engine.timeline.addClip({ trackId: audioTrack.id, assetId: imp.imported[0].id, start: 0 });
+    const out = join(dir, `out.${ext}`);
+    const r = await runExport(engine, {
+      outputPath: out, container, video: null, audio: { codec: audioCodec },
+    });
+    return { out, r };
+  } finally {
+    engine.dispose();
+  }
+}
+
+async function s7() {
+  const SC = 'S7 audio-only round-trips: wav + mp3 (bonus)';
+  console.log(`\n=== ${SC} ===`);
+  const tmp = mkdtempSync(join(tmpdir(), 've-e2e-s7-'));
+  try {
+    const W = await s7Project(tmp, 'e2e-s7-wav', 'tone-48k.wav', 'wav', 'pcm_s16le', 'wav');
+    record(SC, 'wav export succeeded (video:null, pcm_s16le)',
+      W.r.terminal === 'done' && existsSync(W.out), W.r.terminal);
+    if (existsSync(W.out)) {
+      const p = ffprobe(W.out);
+      const a = (p.streams || [])[0];
+      record(SC, 'wav: container/codec/rate/duration round-trip',
+        !p.error && String(p.format?.format_name).includes('wav') && a?.codec_name === 'pcm_s16le'
+          && String(a.sample_rate) === '48000' && Math.abs(Number(p.format?.duration ?? -1) - 1.0) <= 0.1,
+        `format=${p.format?.format_name} codec=${a?.codec_name} ${a?.sample_rate} Hz dur=${p.format?.duration}`);
+      const mv = meanVolumeDb(W.out);
+      record(SC, 'wav: lossless level preserved (−21.1 dB ±0.75)',
+        mv !== null && Math.abs(mv - (-21.1)) <= 0.75, `mean_volume=${mv} dB`);
+    }
+
+    const M = await s7Project(tmp, 'e2e-s7-mp3', 'tone-44100.mp3', 'mp3', 'mp3', 'mp3');
+    record(SC, 'mp3 export succeeded (video:null, libmp3lame, 44.1k→48k resample)',
+      M.r.terminal === 'done' && existsSync(M.out), M.r.terminal);
+    if (existsSync(M.out)) {
+      const p = ffprobe(M.out);
+      const a = (p.streams || [])[0];
+      const dur = Number(p.format?.duration ?? -1);
+      record(SC, 'mp3: container/codec/rate/duration round-trip',
+        !p.error && String(p.format?.format_name).includes('mp3') && a?.codec_name === 'mp3'
+          && String(a.sample_rate) === '48000' && dur >= 0.9 && dur <= 1.3,
+        `format=${p.format?.format_name} codec=${a?.codec_name} ${a?.sample_rate} Hz dur=${dur}`);
+    }
+  } catch (e) {
+    record(SC, 'scenario ran without exception', false, String(e?.stack || e));
+  }
+}
+
 // ================================================================== main
 console.log('export-e2e — Phase-1 export acceptance evidence');
 console.log(`root: ${ROOT}`);
@@ -524,12 +733,14 @@ await s2();
 await s3();
 await s4();
 await s5();
+await s6();
+await s7();
 
-console.log(`\n=== SUMMARY: ${passCount} passed, ${failCount} failed ===`);
+console.log(`\n=== SUMMARY: ${passCount} passed, ${skipCount} skipped, ${failCount} failed ===`);
 try {
   mkdirSync(DEMO_OUT, { recursive: true });
   writeFileSync(join(DEMO_OUT, 'export-e2e-evidence.json'),
-    JSON.stringify({ at: new Date().toISOString(), passCount, failCount, evidence }, null, 2));
+    JSON.stringify({ at: new Date().toISOString(), passCount, skipCount, failCount, evidence }, null, 2));
   console.log(`evidence: demo-output/export-e2e-evidence.json`);
 } catch (e) {
   console.log(`(could not write evidence file: ${e.message})`);

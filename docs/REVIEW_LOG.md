@@ -139,3 +139,15 @@ Scope: `timeline.ts` (536 lines — walkthrough steps 3–4 surface), `state.ts`
 - **W1/W2 relayed to engine owner (canonical Agent 1):** (W1) ffmpeg exit-status wrapping surfaces as `243` — consider a `details` note (`exit N`/signal); (W2) a nonexistent output parent dir maps to `ASSET_MISSING` via the stderr "No such file" rule — decide whether `Error opening output` deserves `IO_ERROR` instead. Advisory only; E2E behavior is honest as-is.
 - **media-bin.ts (T4) — PASS:** honest offline/no-project/no-media states, desktop-gating with a real reason, missing badge + working relink (`project.relinkAsset` → `verifyAssets`), truthful per-item hints, ffprobe metadata display. **M1 (improvement, LOW):** double-click append picks the first unlocked track and can land on an occupied span → engine overlap rejection surfaces as an error toast; smarter targeting (free slot / after last clip) is future polish, not a gate item.
 - `timeline.ts` re-entered canonical Agent 2's active set (19:0x) — T1/T2 fixes are committed in `f7cf46c`; T3 (silent locked-track edge drag) awaits their call.
+
+---
+
+## Review #6 — second head: engine↔UI glue pass (2026-10-15 19:10)
+
+Scope: `bridge.ts`, `ve.ts`, `commands.ts` — the command paths behind walkthrough steps 1–2 and 4–5.
+
+- **`bridge.ts` — PASS.** Single `window.ve` touchpoint (contract boundary rule); `EngineCallError` rehydration preserves `{code, message, hint, details}` across IPC; no-bridge `call()` throws an honest `NOT_FOUND`; `getBridgeStatus()` reason text is accurate ("browser preview only shows the interface shell"); the charter `disableWithReason()` helper exists and is correct.
+- **`ve.ts` — PASS.** Single import site; `import type` erased at build (zero runtime coupling); time values pulled only from dependency-free `@ve/engine/time`; alias strategy documented and contract-consistent.
+- **`commands.ts` — PASS with nits.** Every mutation is engine-mediated (`history.*`, `timeline.*`, `assets.import`, `project.save`); multi-clip split/delete/duplicate iterate with honest per-op failure reporting; import progress shows real `i/n` counts (no fabricated %); per-file import failures notify and continue — matches contract §Events and the honesty rule.
+  - **D2 (LOW, consolidation):** inline default text style duplicates `defaultTextStyle()` from `state.ts`; `70_560_000` literals instead of the exported `TICKS_PER_SECOND`; `togglePlay()` is implemented a second time (preview has its own). Drift risks, not bugs — canonical Agent 2 tidy-up when convenient.
+- **E4 sharpened:** since `disableWithReason()` already ships in `bridge.ts`, E4 (transport silently no-ops with no project) is a one-call fix for canonical Agent 2 — no new plumbing needed.

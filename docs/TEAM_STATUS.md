@@ -371,6 +371,12 @@ The project owner appointed this session **second head**: I make direct changes 
 3. **media-bin.ts reviewed PASS** — T4 closed; one LOW polish note (M1: dblclick can target an occupied span → honest engine error; free-slot targeting later).
 4. **For canonical Agent 2:** `timeline.ts` T1/T2 fixes committed in `f7cf46c` — please ack in your next entry and decide T3 (locked-track edge drag is silent while handles look active).
 
+### SECOND HEAD — increment 6 (2026-10-15 19:10)
+
+1. **Glue-surface review done** (`bridge.ts`, `ve.ts`, `commands.ts`) — all PASS, nits only; details in Review #6. Notable: the `disableWithReason()` charter helper already exists in `bridge.ts`, so **E4** (transport buttons silently no-op with no project open) is a one-call fix for canonical Agent 2.
+2. **Team-2 Agent 1 reassigned → walkthrough step 6 risk:** it now checks (read-only) whether `export/plan.ts` applies per-clip volume/fades, and extends the export E2E with an **S6 gain/fade audibility scenario** (measured via `volumedetect`) — or an honest SKIP + a "STEP 6 RISK" notice here if `planClipAudio` (Agent 3's proposal #3) isn't wired yet. No fake passes.
+3. **Team-2 Agent 2** still building the app-smoke E2E (pre-walk evidence for the manual steps).
+
 ### AGENT 1 (team 1) — foundation slice handoff (2026-10-15, end of session)
 
 **Situation note:** my session started from the coordinator's original greenfield baseline (no commits, `docs/` only). Mid-session the repo advanced concurrently through Phases 1–4 with commits from the coordinator, team 2, and the second head. I stayed in my lane (`packages/engine/**`, contract, my docs), and I **did not touch `packages/app/**` or any other agent's files.** Two coordination facts from this:
@@ -389,6 +395,24 @@ The project owner appointed this session **second head**: I make direct changes 
 **Honesty gates (working as designed, not placeholders):** export rejects speed≠1, keyframes, rotation≠0, pan≠0 with `UNSUPPORTED_FEATURE`+hint; text burn-in blocked because local ffmpeg 8.1.1 Homebrew build **lacks drawtext/libfreetype** (capability probed at runtime; preview-side text unaffected). Waveform API, speed, keyframe evaluation, transitions = planned (Section F phases 2–3). Providers all `available:false` by design.
 
 **Integration conflicts to resolve next session:** contract review notes from other agents (templates bridge surface, `ProviderKind` extensions for tool categories, registration into `ProviderRegistry`) — agreed pattern: structural mirroring of shapes without importing engine where packages already do that. **Next useful step:** my next increment = waveform peaks API + (optionally) reading `PHASE_PLAN.md`/`ACCEPTANCE_WALKTHROUGH.md` prereqs that fall in engine lanes, then integrate the templates/provider notes into contract v1.1.
+
+### AGENT 1 (team 1) — contract review replies + `exportMedia.preflight` landed (2026-10-15, addendum)
+
+Replies to the canonical Agent 2 "Review of v1" items (1–11) and the second-team Agent 2 note 1. Bodies get folded into **contract v1.1** next session — `docs/PROJECT_CONTRACT.md` currently carries other agents' uncommitted appended notes, which I deliberately did **not** stage or modify this session.
+
+1. **Playhead/playback → UI-owned in v1: ADOPTED as you wrote it.** Second-team note 1's `playback:state` event + `playback.status()` are also adopted for v1.1 (engine `available` will derive from asset resolution, honestly).
+2. **Waveform/thumbnails deferred — agreed**, no fake placeholders. `assets.waveform(assetId, buckets)` (min/max pairs) + `assets.thumbnail(assetId)` are my next engine increment.
+3. **Per-file `assets.import([path])` — acceptable**, sequential; `BUSY` only gates export, re-probe cost is per-file anyway (single probe per call).
+4. **Shapes:** `verifyAssets() → Array<{assetId, status:'ok'|'missing', resolvedPath?}>` (no `searchedPaths` in v1). `project.open` already returns resolutions inside `state.assets` — the UI does **not** need a second call right after open; re-run `verifyAssets()` on demand/before export (filesystem can change). `recoveredAutosave: { path, modifiedMs: number }` (epoch ms — contract prose says "modifiedAt"; corrected in v1.1).
+5. **`autosave:status` event — accepted for v1.1** (until then a warning chip on unsaved state is the right call; autosave failures are currently silent by design).
+6. **`exportMedia.preflight(options)` — LANDED NOW.** Signature: `preflight(options: Omit<ExportOptions,'outputPath'> & {outputPath?}) → { blockers: EngineErrorShape[], durationTicks? }`. Dry-runs the full export plan (missing assets, text/speed/keyframes/rotation/pan gates, container/codec/capability checks) with zero file writes. Covered by a test (text-clip blocker + hint). Use it to disable **Start** and render reasons up front. `capabilities()` remains the cheap capability check.
+7. **Native dialogs belong to `@ve/app` — confirmed**; engine stays headless/dialog-free.
+8. **Time helpers importable from `@ve/engine` root — confirmed:** `TICKS_PER_SECOND, ticksFromSec, secFromTicks, frameFloor, frameCeil, frameDurTicks, framesToTicks, ticksToFrames, formatTimecode, parseTimecode, rat, ratFromFrameRateFloat, isSampleExact, ticksFromSamples…`.
+9. **Bridge shape confirmed** — `window.ve = { invoke, on }`; your `bridge-adapter.ts` approach is exactly the intended consumption pattern.
+10. **Relink via `project:change` reason `'relink'` — confirmed**; no extra event in v1.
+11. **Factory pinned:** `createEngine(opts?: { appDataDir?, autosaveIntervalMs?, historyLimit?, ffmpegPath?, ffprobePath? }): EngineInstance`, plus `createEngineDispatcher(engine)` and `DEFAULT_SETTINGS`. Please probe for **`createEngine` only** (`createEngineApi`/`createDefaultEngine` don't exist in `@ve/engine`).
+
+Evidence: tests **33/33**, `verify-timebase.mjs` **41/41**, demo E2E green (4.50 s exported file re-probed). Files touched: `packages/engine/src/{api,engine}.ts`, `src/test/media-export.test.ts`, this entry.
 
 ---
 

@@ -315,3 +315,9 @@ The project owner appointed this session **second head**: I make direct changes 
 **Re-read cadence:** this file re-read before every write (mtimes: 18:11 → 18:20 → 18:27 caught, each before appending).
 
 **Increment commit:** `9d14ed0` (math fix + tests + contract notes #12-13 + this entry); follow-up `9d14ed0`-adjacent commit carries `src/types/css.d.ts`. Draft `timeline-view.ts`/`timeline.css` intentionally left untracked per README-ownership.
+
+### COORDINATOR — Phase 4 opened + acceptance walkthrough published (2026-10-15)
+
+- **Phase 4 agent launched** → owns `packages/templates/**` (original template system + starter library, AI tool interfaces behind honest provider stubs). Same coordination rules as Phases 2/3.
+- **`docs/ACCEPTANCE_WALKTHROUGH.md`** is now the literal gate script — 10 steps + prereqs; I run it myself at gate #2. B1/B2 owners: those two prereq checkboxes are your lanes.
+- Owner granted blanket permission to continue through all phases without pause; network/paid services remain individually gated (charter) — provider stubs only.

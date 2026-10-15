@@ -416,3 +416,25 @@ $ npm run verify:export                 → 39 passed, 0 failed
 **Checklist status (my lane):** Phase-1 "Export produces a playable file…" = **evidence complete, PASS** pending coordinator's own run at gate. B2 satisfied as far as this lane goes. `npm test` now fails if timebase claims break (dependency-free, first in chain).
 
 **Next useful step:** stand by for gate #2 findings; available to extend E2E (wav/mp3 container exports, overwrite-mode clips, range export) on request.
+
+### Agent 3 (Phase 3) — HANDOFF SUMMARY (2026-10-15)
+
+**Changed / delivered (commit `5b29064`):**
+- `packages/audio/**` — new workspace package `@ve/audio` (zero runtime deps; Node stdlib + local ffmpeg only; no Electron/DOM; does NOT import `@ve/engine` — contract shapes mirrored structurally so the package is standalone-buildable; README documents this).
+  - **Waveform:** `computeWaveform` (ffprobe duration → ffmpeg s16le mono @8 kHz decode → streaming min/max buckets) + `waveformCached`/`readWaveformSidecar` (versioned JSON sidecar, source size+mtime fingerprint + bucket-count invalidation, atomic write). Video-only assets fail with `FFMPEG_FAILED` + "no audio stream" hint.
+  - **Sidecar SRT:** `cuesFromClips`/`cuesFromProject` (hidden-track excluded w/ warning, disabled/empty skipped w/ warnings) + `buildSrt` (stable sort, wrap/split/min-duration/overlap-clamp; ±0.5 ms tick→ms documented) + `writeSrtFile`. Closes the known gap where text export was gated OFF with no alternative.
+  - **Volume/fades mapping:** `planClipAudio`/`tryPlanClipAudio` → `volume=` + tick-exact `afade` chains (post-atrim, clip-relative); muted/zero-volume → `skip` + reason; speed≠1/1 → `UNSUPPORTED_FEATURE`; fade-sum>duration → `INVALID_ARGUMENT`.
+  - **Noise cleanup:** 4 profiles (light/hum-removal/standard/strong) planned against runtime-probed `ffmpeg -filters`; missing filter → `UNSUPPORTED_FEATURE` + names (this build: Observed all present incl. afftdn/bandreject).
+  - **Voiceover:** pure-Node WAV encode/parse, `VoiceoverSession` (chunked PCM → wav/mp3 via libmp3lame), exact ticks @ 44.1/48/96 kHz, `voiceoverClipFromRecording` (contract-`Clip`-shaped), `VoiceoverBridge` IPC contract documented in README for Agent 2.
+  - **Transcription:** `TranscriptionProvider` interface + honest unavailable stub; `detectLocalWhisper` (Observed: `whisper-cli` at /usr/local/bin, no ggml models → provider stays `available:false` with that exact reason). No network code, no installs.
+  - **Tests:** 54/54 green (`npm test -w @ve/audio`), all media synthesized with local ffmpeg in OS temp and cleaned up.
+- `docs/FEATURE_MATRIX.md` — updated ONLY my Phase 3 rows in place (note: coordinator's file landed in `80cc824` after my baseline check; I had briefly overwritten it, then restored the original and edited just my section — apologies for the blip; diff vs HEAD is Phase-3-rows-only).
+- `docs/PROJECT_CONTRACT.md` — appended "Contract review notes (Agent 3)" with 7 proposals.
+
+**Contract proposals (for Agent 1; details in the review notes):** (1) `assets.waveform(assetId, buckets) → { peaks, sidecarPath, cacheHit }`; (2) `exportMedia.exportSrt(options?) → { srtPath, cueCount }`; (3) export plan builder calls `planClipAudio` after each clip's `atrim` (`tryPlanClipAudio` for preflight); (4) voiceover finalize returns `{ file path, contract-shaped Clip }` → engine registers asset + places clip; (5) optional additive `clip.audio.noiseCleanup` profile field (free per versioning rule; not needed for Phase 3 close); (6) transcription stays provider-gated; (7) no license review needed (MIT, no new deps).
+
+**Implemented vs partial vs planned:** Implemented + tested in-package — waveform(+cache), SRT, gain/fade mapping, noise profiles, voiceover session/WAV/clip-shape, provider gate + detection. Partial — none. Planned — engine/UI wiring (Agent 1/2 per proposals), speech→captions pipeline (needs model/service + owner approval), music-bed controls (UI feature).
+
+**Open decisions for others:** Agent 1 — integrate the 3 wiring proposals (waveform/SRT/gain-map) when convenient; Agent 2 — voiceover IPC session/append/finalize/abort per README (renderer getUserMedia is yours); Coordinator — Phase 3 cannot be declared closed until the wiring lands in the product; today these are honest, tested package capabilities, not user-visible features.
+
+**Next useful step:** after Agent 1 wires `planClipAudio` into the export plan, re-run the Phase-1 "volume/fade applies to export" acceptance with an audible A/B; then `exportMedia.exportSrt` makes the export dialog's SRT option real for Agent 2.

@@ -192,6 +192,26 @@ The check is kept in `scripts/verify-timebase.mjs` (annotated, currently the sui
 
 ---
 
+### Agent 1 (second team) — HANDOFF SUMMARY (2026-10-15 17:52)
+
+**Changed / delivered (committed `55e5923` on top of coordinator checkpoint `44956db`):**
+- `attic/flutter-drafts-agent1/**` — my pre-redirect Flutter/Dart editor core + v0.1 contract draft, archived with README (in checkpoint commit).
+- `scripts/verify-timebase.mjs` — 41-claim verifier over the real `time.ts` (40 pass / 1 fail). **The 1 fail is a real engine bug** (`parseTimecode` uses 29.97 instead of nominal 30 for NTSC — 2-frame drift; exact fix quoted in my entry above). Not patched by me: `packages/engine/**` is canonical Agent 1's.
+- `test-media/` — 5 deterministic fixtures (~265 KB) + `regenerate.sh` + measured ffprobe README table; binaries gitignored, source tracked (`.gitignore` amended, announced here).
+- `docs/TEAM_STATUS.md` — baseline, reconciliation, claims, bug report, handoff (this).
+
+**Contract deltas:** none applied to the body (canonical Agent 1 owns it; my merge suggestions i–iv are in my 17:45 entry). Accepted v1 as written, including ticks > µs.
+
+**Implemented vs partial vs planned (my scope):** Implemented — verification tooling, fixtures, archived Dart reference core (untested; unit tests were planned, never written — treat as design reference only). Partial — none. Planned — pending canonical Agent 1's answer on taking a concrete engine slice (`ops/keyframes.ts`+tests, or export-plan builder); will not touch `packages/engine`/`packages/app` without a yes.
+
+**Status vs Phase 1 checklist:** my contributions unblock "import ffprobe metadata" and "export" test work (fixtures) and de-risk the time-math claims (verifier). No Phase-1 acceptance item is claimed complete by me.
+
+**Open questions for the team:** (1) canonical Agent 1: claim ACK + `parseTimecode` fix + engine-slice assignment; (2) keep `scripts/verify-timebase.mjs` in CI/`npm test` wiring — your call (`node scripts/verify-timebase.mjs`, no deps).
+
+**Next useful step (whoever picks it up):** run the verifier after the `parseTimecode` fix (should go 41/41), then use `test-media/bars-tone.mp4` + `tone-48k.wav` for the first export E2E once `export/` lands.
+
+---
+
 ### SECOND HEAD (coordinator session `ses_ec31f91c6ffeEUTcTBeJxl8EU2`) — appointed by project owner, 2026-10-15
 
 The project owner appointed this session **second head**: I make direct changes in the codebase AND hold independent higher-authority review over all agents' code, alongside the gates in `docs/PHASE_PLAN.md`. Ownership boundaries between agents remain in force; I announce any file I touch in this entry before touching it.

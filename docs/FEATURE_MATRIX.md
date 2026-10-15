@@ -22,18 +22,30 @@ Platform for Phase 1+ = macOS first (Designed); core is platform-neutral TypeScr
 | Reopen recovers asset references | Planned | macOS | persistence + relink | See relink row | Designed |
 | Honest states (no fake-functional controls) | In progress (unverified) | macOS | states library, capabilities API | Every unavailable control shows why | Observed (review #1 partial) |
 
-## Phase 2 — editing depth (Planned)
+## Phase 2 — editing depth
+
+Rows 1–10 (effects/transitions/keyframes/speed/masks/color/stickers): **Agent 2.5 (`@ve/effects`)**, 2026-10-15.
+Rows for snapping/markers/undo/arrange/caption styling remain with Agents 1–2 (unclaimed rows keep their status until an owner updates them).
 
 | Feature | Status | Dependencies | Evidence |
 |---|---|---|---|
-| Transitions (crossfade etc.) | Planned | compositor (`resolveAt` reference in attic) | Documented (public feature) |
-| Keyframes: transform/opacity/volume/effects | Planned | `ops/keyframes.ts` (evaluator semantics ported from attic draft) | Documented; evaluator Designed (attic, tested in Dart — unported) |
-| Speed change / ramping | Planned | time remap in compositor | Documented |
+| Transitions: cut, fade, dip-to-color, wipe (data model + timing math + export plans) | Implemented (unverified E2E) | `xfade`/`concat`/`acrossfade` (Observed), engine export embed pending | Observed (filters + 1.5 s xfade smoke test), Designed (model); 12 unit tests green |
+| Dip-to-color export, arbitrary color | Capability-gated | xfade only ships fadeblack/fadewhite color dips | Observed (xfade options); blocked with hint, preview supports any color |
+| Keyframes: evaluator (interp + contract easing set, clamp, left-keyframe curve) | Implemented (in `@ve/effects`, engine not yet consuming) | none (pure) | Designed (semantics), Observed (85-test suite green incl. NTSC frame math) |
+| Keyframes → per-frame parameter streams (`sampleParamStream`) | Implemented (API offered to engine export) | engine integration pending | Designed; unit-tested frame counts/tick spacing at 30 + 30000/1001 fps |
+| Speed change (constant per clip): time-remap math + setpts/atempo plan | Implemented (unverified E2E) | `setpts`/`atempo` (Observed) | Observed (filters), Designed (math); unit tests incl. atempo chaining |
+| Speed ramping | Planned | piecewise remap design | Documented |
+| Masks (rect/ellipse, feather, invert): geq export + SVG preview | Implemented (unverified E2E) | `format`+`geq` (Observed; expressions executed on real frames) | Observed (probe: alpha 255 center/0 corner, RGB preserved), Designed (preview) |
+| Color adjustments (brightness/contrast/saturation/temperature/duotone/grayscale/sepia) | Implemented (unverified E2E) | `eq`/`colortemperature`/`colorchannelmixer`/`hue` (Observed) | Observed (filters + colortemperature direction measured), Designed (CSS mappings) |
+| Effects library: blur, sharpen, vignette, pixelate, invert, chromatic aberration | Implemented (unverified E2E) | `gblur`/`unsharp`/`vignette`/`scale`/`negate`/`rgbashift` (Observed) | Observed (probed), Designed (preview mappings); 13 effects total |
+| Keyframed effect parameters on export | Capability-gated | per-frame export plan (planned) | Designed; refused with UNSUPPORTED_FEATURE + hint, preview animates |
+| Stickers (6 original procedural SVGs) — preview | Implemented (preview) | renderer SVG support | Designed (original assets, code-generated) |
+| Stickers — export/burn-in | Capability-gated | no SVG rasterizer in pipeline (planned: renderer PNG → overlay) | Observed (ffmpeg has no SVG input); honest UNSUPPORTED_FEATURE + hint |
+| Filter presets (6 original recipes) | Implemented (unverified E2E) | effects registry | Designed; instantiated in tests |
+| Effects export availability API (probe + preflight blockers) for UI/export dialog | Implemented | local `ffmpeg -filters` probe | Observed (live probe test green); UNSUPPORTED_FEATURE + hint enforced |
 | Snapping polish, markers | Planned | timeline view | Documented |
-| Masks + color adjustment | Planned | ffmpeg filters (subset Observed) | Documented |
-| Effects/filters library (original) | Planned | ffmpeg filter set (Observed: overlay, scale, fps, color…) | Documented |
-| Stickers (original/generated assets) | Planned | asset pipeline | Documented |
-| Caption/subtitle styling | Planned | text overlay + export path | Documented |
+| Duplicate/replace/arrange flows, undo/redo completeness | In progress (unverified) — Agents 1/2 | engine ops | Designed |
+| Caption styling | Planned | text overlay + export path | Documented |
 
 ## Phase 3 — audio & captions
 

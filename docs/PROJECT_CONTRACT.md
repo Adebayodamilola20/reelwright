@@ -361,3 +361,31 @@ Overall: v1 is buildable-against and the honesty rules match what I need. Notes 
 5. **PROPOSE — noise cleanup as an export/preview audio filter.** `planNoiseCleanup(profile, availableFilters)` / `runNoiseCleanup(in, out, profile)` with 4 profiles; engine may expose `audio.noiseCleanup?: 'light'|'hum-removal'|'standard'|'strong'` per clip later (additive field, free per versioning rule). Not required for Phase 3 close; today it's callable standalone (e.g. "clean up this voiceover clip before placing"). Status: **Designed**.
 6. **PROPOSE — transcription stays provider-gated.** `WhisperCliProvider.status()` honestly reports detection (Observed on this machine: `whisper-cli` at /usr/local/bin, no ggml models) and returns `available: false` with that reason; `transcribe()` throws `NOT_CONFIGURED`. When a model/service is owner-approved, the pipeline emits `SrtCue[]` → `buildSrt` with zero contract change. No network code exists in the package. Status: **Designed** (detection Observed).
 7. **FYI — no new npm dependencies;** `@ve/audio` is stdlib + local ffmpeg only. Adding it to the engine's deps (`"@ve/audio": "*"`) needs no license review beyond the MIT header already in place.
+
+## Contract review notes (Agent 2.5 — Phase 2, `packages/effects`, 2026-10-15)
+
+`@ve/effects` is built and tested standalone (85/85 node:test green, zero runtime deps; Observed). It mirrors contract shapes structurally (no `@ve/engine` import) so engine churn can't redden it. **Agent 1 decides** — I do not edit the contract body or `packages/engine/**` / `packages/app/**`. Design doc: `packages/effects/README.md`.
+
+1. **PROPOSE — three additive `Clip` fields** (versioning rule: additive = free; consumers ignore unknown fields; schemaVersion bump unnecessary):
+   ```ts
+   interface Clip {
+     // …existing fields…
+     effects?: EffectInstance[];   // ordered; registry ids from @ve/effects
+     mask?: MaskSpec | null;       // normalized rect/ellipse + feather/invert
+     transitionIn?: Transition | null; // at this clip's head boundary with the PREVIOUS clip on the track
+   }
+   ```
+   All three are optional; absence = today's behavior. Types are exported from `@ve/effects` (`EffectInstance`, `MaskSpec`, `Transition`) and are JSON-serializable plain data.
+2. **PROPOSE — widen `Keyframe.prop` from the fixed union to `string`** (documented path grammar: contract props as-is + `effect.<instanceId>.<paramId>` for effect params). The evaluator is already generic over `prop: string`; engine-side validation can keep the union as a lint list. No data migration: existing keyframes parse unchanged.
+3. **PROPOSE — adopt these evaluator semantics as normative text** (currently undefined in the body; "stored but NOT evaluated"): clamp before first/after last keyframe; segment curve taken from the **left** keyframe; duplicate `at` → last keyframe wins; easing definitions: `easeIn(t)=t²`, `easeOut(t)=1−(1−t)²`, `easeInOut(t)=quadratic around ½`, `hold` = step at segment start. Reference: `packages/effects/src/keyframes.ts` (unit-tested).
+4. **PROPOSE — engine consumption API for export** (the missing link between this package and your `export/plan.ts`):
+   - `sampleParamStream({keyframes, prop, base, fps, start, duration}) → {frame, at, value}[]` for per-frame keyframe streams;
+   - `buildEffectChain(instances, keyframes, ctx, caps)`, `buildClipMaskChain(mask)`, `buildTransformChain(transform, caps)` → `{ chain, requiredFilters, position? }` segments to splice into your filtergraph;
+   - `buildTransitionExportPlan(outgoing, incoming, transition, caps)` → `{ window, video: {strategy, xfade?}, audio, requiredFilters }` for adjacent-clip joins;
+   - `speedExportPlan(speed)` → `{ video[], audio[], requiredFilters, notes }`;
+   - `probeFfmpegCapabilities(ffmpegPath)` if you want effects gates to share one probe (or pass your own parsed `FfmpegCapabilities`).
+   Wiring suggestion: add `"@ve/effects": "*"` to engine deps; replace the blanket "reject all keyframes/speed" gate with: keyframed transform/volume still rejected (v1) but *constant* effects/masks/speed now map through the builders above — each still gated by `assertFiltersAvailable`.
+5. **PROPOSE — `exportMedia.preflight` gets effects data:** `clipExportBlockers(clip, caps)` returns non-throwing `{clipId, feature, code, reason}[]` (missing filters, keyframed effect params, masks). This complements Agent 2's note #6 / second-team note #7 — the dialog can list blockers before the run. Stickers (`assertStickerExportable`) intentionally always block export in v1 (no rasterizer) — expose that reason verbatim.
+6. **PROPOSE — transition geometry (normative):** transitions require abutting clips (v1); region = `duration` ticks ending at the boundary, consuming outgoing tail + incoming head, program loses `duration` ticks. Non-abutting → `INVALID_ARGUMENT` + hint. If you adopt overlap-mode transitions later (overlapping clips allowed), the window function gains a mode — flag it here and I'll extend rather than fork.
+7. **DECIDED IN PACKAGE (sensible defaults, charter):** speed bounds (1/16 … 16]× with atempo-chain decomposition; dip-to-color export limited to black/white (others blocked with hint, not silently wrong); `brightness/contrast/saturation` param ids unique (`brightness`/`contrast`/`saturation`) so adjacent instances merge into one `eq` call; effect params clamped to declared ranges at resolution. Objections welcome in this section.
+8. **FYI — no new npm dependencies;** MIT. Filters the mappings need are all Observed-present in this environment's ffmpeg 8.1.1 (probed by a live test), but every export path re-probes at runtime — portability is gated, not assumed.

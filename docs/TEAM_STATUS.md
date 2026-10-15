@@ -477,3 +477,48 @@ $ npm run verify:export                 → 39 passed, 0 failed
 - **Phase 3 package-level handoff ACCEPTED** (54/54 re-run, build clean, matrix rows scoped). Wiring of waveform/SRT/noise/voiceover into engine+UI = Agents 1–2 integration lane at their handoff.
 - **B3 remains:** my full walkthrough runs once remaining agents hand off (Agent 1, Agent 2, Phase 2, Phase 4). `packages/templates` tsc exit 2 = Phase 4 mid-flight — not a finding.
 - Shared-doc rule reaffirmed after ROADMAP clobber+restore (2653689): announce-then-edit on ROADMAP/FEATURE_MATRIX.
+
+---
+
+### Agent 2 (second team, `ses_ebfaed118ffe0SsU7y7VKh4Bf4`) — app-smoke E2E lane (SECOND HEAD assignment) — 2026-10-15 ~19:35
+
+**Deliverable (committed): `scripts/app-smoke-e2e.mjs`** — the app-side integration smoke. Single command proves the Electron app boots with a working engine bridge. **No `package.json` edited at any level** (per your rule); everything outside my script was read-only.
+
+**RESULT — full cold run: 6/6 checks PASS, exit 0 (`node scripts/app-smoke-e2e.mjs`):**
+- `build:engine` 17.5s · `build:app` 26.5s — both exit 0 (failures would be captured as evidence tails, never patched).
+- attempt 1/3 — `electron . --smoke` from `packages/app`, spawned detached in its own process group, TERM→KILL after the run; **orphan check after: empty `ps`** (verified).
+- **Captured SMOKE_REPORT JSON (Observed):** `{ hasVe: true, hasInvoke: true, hasOn: true, title: "Reelwright", bodyChildren: 2 }` + text sample `"…Local-first video editing… Engine ready … ＋ New project …"` — window created, renderer loaded, home view mounted.
+- **Engine dispatch = `round-trip` (Observed) — WHICH recorded as required:** an in-renderer `window.ve.invoke('project.recent', []) → []` via a Chromium DevTools-protocol probe (script passes `--remote-debugging-port=0` and evaluates through the page target — zero source edits to anyone's files), corroborated by `[main] engine ready via createEngine + createEngineDispatcher`. Had the bridge been down, the script would instead have recorded the structured `honest-unavailable` envelope (`NOT_FOUND` / "Engine is not available in this session") — walkthrough accepts either; the report states which.
+- Exit-code contract: `0` pass · `1` assertion fail · `2` build fail · `3` inconclusive (probe unobservable after retries — deliberately never mislabels a fine app) · `4` setup fail. Flags: `--skip-build`, `--attempts N`. Per-attempt timeout 30s (actual cold attempt ≈13.3s). Evidence JSON → `demo-output/app-smoke-evidence.json` (gitignored, like export-e2e's).
+- **Registration request (SECOND HEAD):** `"verify:app-smoke": "node scripts/app-smoke-e2e.mjs"` — root `package.json` untouched by me, wiring is yours as agreed.
+
+**BLOCKED → REPAIRED (environment finding, needs a head decision):** first runs failed before any app code: `Error: Electron failed to install correctly, please delete node_modules/electron and try installing again` (`node_modules/electron/index.js:17`), ×3 attempts, exit 1, empty stdout. Root cause (Observed, reproduced twice): the npm postinstall never completed — **`node node_modules/electron/install.js` exits 0 silently while extracting only `Electron.app/Contents/{MacOS,Resources}` (no `Frameworks`) and never writes `path.txt`**; no error printed, cached-zip checksums pass. Root cause Inferred = an extract-zip entry-processing skip being swallowed (owner look welcome). **Repair (offline; no `npm install`, no `package.json`, no agent files):** the cached `electron-v38.8.6-darwin-x64.zip` integrity-checked clean (`unzip -tq`: 585 files, 518 Frameworks entries, 285 MB) → extracted with system `unzip -o` into `node_modules/electron/dist` → `path.txt` written with install.js's own documented content (`Electron.app/Contents/MacOS/Electron`) → binary verified `v38.8.6`. **Heads-up: this lives only in gitignored `node_modules` — any fresh `npm install` re-breaks `electron .` (and every walkthrough running-app step) until install.js is fixed.** Transparent note: one of my repair commands initially ran with the parent-repo cwd (missing workdir) — verified the parent has no `node_modules/` at all ⇒ no-op, zero files touched (evidence: `ls`).
+
+**What the smoke does NOT claim:** it proves boot + renderer mount + bridge + one engine round-trip; it does not drive the UI — walkthrough steps 1–9 remain the coordinator's manual walk. No FEATURE_MATRIX row touched (your rule; rows are yours to flip).
+
+**Implemented / partial / planned:** *Implemented* — smoke script (builds → spawn → SMOKE_REPORT parse → CDP round-trip probe → assertion report → clean kill) + evidence JSON. *Partial* — none. *Planned* (on request): probe extensions (`project.create` write-path round-trip, `ve:event` delivery assert), or a `--watch` mode for gate day.
+
+**Next useful step:** (a) SECOND HEAD wires the npm script; (b) anyone with network runs one `npm install` and re-runs the smoke to prove install.js end-to-end (or files the extract-zip finding upstream); (c) coordinator can now add `node scripts/app-smoke-e2e.mjs` to the gate prereqs as the boot-proven half of the running-app steps.
+
+---
+
+### Agent 2.5 (Phase 2) — HANDOFF SUMMARY (2026-10-15)
+
+**Changed / delivered (this session):**
+- **`packages/effects/**` (NEW workspace package `@ve/effects`)** — build green (`npm run build -w @ve/effects`), **85/85 node:test green** (`npm test -w @ve/effects`). Zero runtime deps (stdlib + one ffmpeg probe). Files: `src/{types,errors,ticks,easing,keyframes,speed,capabilities,transitions,masks,stickers,presets,preview,export-chain,index}.ts`, `src/effects/{definitions,registry}.ts`, 9 test files, `README.md` (design doc: effect → preview → export → availability matrix), `package.json`, `tsconfig.json`.
+- **13 original effects** (blur, sharpen, brightness, contrast, saturation, grayscale, sepia, invert, vignette, pixelate, temperature, duotone, chromatic aberration), each with preview plan (CSS/pure-canvas ops, unit-tested reference math) + export chain + required-filter gate. Consecutive eq-family effects merge into one `eq` call.
+- **Transitions** (cut/fade/dip-to-color/wipe): boundary data model + window math + `xfade`/`concat`/`acrossfade` export plans; dip-to-color beyond black/white blocked honestly (`UNSUPPORTED_FEATURE` + hint).
+- **Keyframe evaluator** (contract easing set, clamp/left-keyframe semantics, duplicate-times rule) + `sampleParamStream` per-frame streams + `resolveClipParamsAt` — the API Agent 1's export path can consume (proposal #4 in contract notes).
+- **Speed** remap math + `setpts`/`atempo`-chain plan; **masks** (rect/ellipse/feather/invert → geq expressions verified against real ffmpeg frames); **6 original procedural-SVG stickers** (preview works; export capability-gated OFF with reason); **6 original filter presets**; **capability probe + `clipExportBlockers` preflight** for the export dialog.
+- **`docs/FEATURE_MATRIX.md`** — announce-then-edit per shared-doc rule: I replaced ONLY the Phase 2 section table (verified via `git diff`: single `## Phase 2` heading change, 21 added lines) with my 19 rows (statuses + evidence labels). No other section touched.
+- **`docs/PROJECT_CONTRACT.md`** — appended "Contract review notes (Agent 2.5)" (8 items; verified diff = my section only). Contract body untouched (Agent 1's).
+
+**Contract proposals (full text in review notes):** (1) additive `Clip.effects?/mask?/transitionIn?`; (2) widen `Keyframe.prop` to `string` with path grammar incl. `effect.<instanceId>.<paramId>`; (3) evaluator semantics as normative text; (4) consumption API for export (`sampleParamStream`, `buildEffectChain`, `buildTransformChain`, `buildTransitionExportPlan`, `speedExportPlan`, `probeFfmpegCapabilities`); (5) `clipExportBlockers` feeding `exportMedia.preflight`; (6) transition geometry (abutting-only v1, program loses `duration`); (7) package-decided defaults listed for objection; (8) no new deps.
+
+**Evidence (Observed, this environment):** ffmpeg 8.1.1 probe test asserts `gblur, unsharp, eq, hue, colorchannelmixer, colortemperature, vignette, negate, scale, rgbashift, geq, format, xfade(58 transitions), setpts, atempo, acrossfade, concat, rotate` all present; geq alpha expressions + rotate/aa + xfade wipe executed on real frames during development (1.5 s wipe output; alpha 255 center/0 corner; colortemperature direction measured: lower K = warmer). Runtime re-probe still gates every export path per machine.
+
+**Implemented vs partial vs planned:** Implemented (package level, unverified E2E): effects library + gating, transitions model/plans, keyframe evaluator, speed math/plans, masks, presets, sticker preview, preflight blockers. Partial: keyframed params on export (refused with hint; stream API ready), transform chains (offered, engine doesn't consume yet). Planned: speed ramping, overlapping-clip transitions, dip-to-color export beyond black/white, sticker rasterization burn-in, partial invert.
+
+**What I did NOT touch:** `packages/engine/**`, `packages/app/**`, others' docs entries, contract body.
+
+**Status vs coordinator gates:** deliverables (1)–(6) done; package accepted at package-level (second head already observed "effects clean" in build). **Next step:** Agent 1 wires `@ve/effects` into `export/plan.ts` per proposal #4 (constant effects/masks/speed/transition joins + preflight blockers), then my package goes through an E2E export acceptance; Agent 2 wires `buildPreviewPlan` + availability reasons into the inspector/effects UI (README has the exact plan contract).

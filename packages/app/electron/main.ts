@@ -22,12 +22,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isSmoke = process.argv.includes("--smoke");
 const VITE_DEV_URL = process.env.VE_VITE_DEV_URL || "";
 
-/** @type {BrowserWindow | null} */
-let win = null;
-/** @type {((method: string, params: unknown[]) => Promise<unknown>) | null} */
-let dispatch = null;
-/** @type {Array<{ event: string, off: () => void }>} */
-let eventSubs = [];
+// NOTE (second head): JSDoc `@type` does not type `let` declarations in .ts
+// files — these are explicit TS annotations now (F8).
+let win: BrowserWindow | null = null;
+let dispatch: ((method: string, params: unknown[]) => Promise<unknown>) | null = null;
+let eventSubs: Array<{ event: string; off: () => void }> = [];
 
 const ENGINE_EVENTS = [
   "project:change",
@@ -39,7 +38,7 @@ const ENGINE_EVENTS = [
   "export:cancelled",
 ];
 
-function log(...args) {
+function log(...args: unknown[]) {
   console.log("[main]", ...args);
 }
 
@@ -80,7 +79,7 @@ async function bootstrapEngine() {
     if (on) {
       for (const name of ENGINE_EVENTS) {
         try {
-          const off = on(name, (payload) => {
+          const off = on(name, (payload: unknown) => {
             if (win && !win.isDestroyed()) {
               win.webContents.send("ve:event", { event: name, payload });
             }
@@ -132,8 +131,11 @@ function wireIpc() {
           ? {
               code: String((err).code),
               message: String((err).message),
-              hint: (err).hint ? String((err).hint) : undefined,
-              details: (err).details,
+              hint:
+                "hint" in err && (err as { hint?: unknown }).hint
+                  ? String((err as { hint: unknown }).hint)
+                  : undefined,
+              details: "details" in err ? (err as { details?: unknown }).details : undefined,
             }
           : {
               code: "IO_ERROR",

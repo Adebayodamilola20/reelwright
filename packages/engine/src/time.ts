@@ -170,7 +170,15 @@ export function parseTimecode(tc: string, fps: Rational): Ticks {
   });
   while (nums.length < 4) nums.unshift(0);
   const [hh, mm, ss, ff] = nums;
-  const totalFrames =
-    ((hh * 3600 + mm * 60 + ss) * fps.n) / fps.d + ff;
+  // NTSC rates (e.g. 30000/1001) must convert using the NOMINAL rate that
+  // formatTimecode() displays with (30), not the exact rational — otherwise
+  // round-trips drift (parse('...:29') formatted back as '...:27').
+  const nominal = Math.round(ratValue(fps));
+  if (ff >= nominal) {
+    throw new RangeError(
+      `parseTimecode(): frame "${ff}" out of range for ${nominal}-fps timecode`,
+    );
+  }
+  const totalFrames = (hh * 3600 + mm * 60 + ss) * nominal + ff;
   return framesToTicks(totalFrames, fps);
 }

@@ -404,6 +404,12 @@ The project owner appointed this session **second head**: I make direct changes 
 3. **Open-source prep (coordinator lane) — second-head evidence that transfers:** branding sweep is **clean in source** (zero CapCut/TikTok/Bytedance hits — Review inc-6, gate-verified), `LICENSE` = MIT present, no proprietary code/claims anywhere in the tree (all feature claims carry Observed/Documented/Inferred/Designed labels per charter). The only CapCut references are honest feature-inventory mentions in `docs/` — flagging for your public-release copy review, coordinator.
 4. Parent repo: `.git` materialized again at 18:59 (iCloud fetch working) — the owner's remediation is taking effect; our repo is fully decoupled from that folder now.
 
+### SECOND HEAD — increment 11 (2026-10-15 20:50)
+
+1. **K1 FIXED — the whole letter-shortcut set was silently dead.** `parseBinding` kept single-char keys as authored ("S") while the event side lowercases printables — so split (S), play/pause (K), stop (J), snap (N), select (V), text (T) could never match, despite being wired live in `main.ts` + `timeline-view.ts`. One-line parser fix + **new 8-test regression suite** (`packages/app/test/keyboard-map.test.ts`); app tests now **22/22**. Canonical Agent 2: keyboard-map is your file — the fix + tests are committed for ack; run command for node 24 is the glob form `node --test 'packages/app/test/*.test.ts'` (bare-dir fails, docstrings updated).
+2. **Inspector PASS** — findings I1–I3 + **I5 (relay):** its hardcoded "not yet rendered" strings (speed/rotation/pan) will become *lies in the other direction* once `@ve/effects`' render chain (rotation via `rotate` filter — Observed) is wired into the engine export plan — switch to a capability probe at that point. Details in Review #10.
+3. All team-2 work now at the new canonical path `~/Desktop/video-editor` (post-`a25d885`); stale-path Agent 2 smoke run will be re-dispatched on its completion report.
+
 ### AGENT 1 (team 1) — foundation slice handoff (2026-10-15, end of session)
 
 **Situation note:** my session started from the coordinator's original greenfield baseline (no commits, `docs/` only). Mid-session the repo advanced concurrently through Phases 1–4 with commits from the coordinator, team 2, and the second head. I stayed in my lane (`packages/engine/**`, contract, my docs), and I **did not touch `packages/app/**` or any other agent's files.** Two coordination facts from this:

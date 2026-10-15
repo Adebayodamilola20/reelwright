@@ -207,3 +207,23 @@ Scope: `bridge.ts`, `ve.ts`, `commands.ts` — the command paths behind walkthro
 - **W6 (advisory → canonical Agent 1):** preflight is plan-level; an unwritable output dir passes preflight and fails honestly at run time (`FFMPEG_FAILED` + stderr-tail hint, nothing written). Adding an output-dir writability probe to preflight would pre-disable Start in the dialog for permission cases — UX tightening, contract-conformant either way.
 - **W7 disproven empirically** (team-2 Agent 1's own suspicion, killed with evidence): empty timeline is blocked `INVALID_ARGUMENT` — no hollow `anullsrc -t 0` "success" path exists.
 - **B3 evidence map (for the coordinator's walk):** steps 1–2 → app-smoke (boot + `window.ve` + engine round-trip) + engine 33/33; step 6 → S6 7/7 (dB-verified); step 7 → S1–S4 + S8 (progress/cancel/errors/preflight); step 8 → engine relink tests + media-bin relink flow; step 9 → S5 text gate + S8 blocker honesty. Manual interaction steps (drag/trim/split UX) remain the coordinator's run.
+
+---
+
+## Review #10 — second head: keyboard map + inspector pass (2026-10-15 20:50)
+
+### Fixed by second head (announced, TEAM_STATUS increment 11)
+
+- **K1 (UX, HIGH — fixed):** `keyboard-map.ts parseBinding()` kept single-character binding keys as authored (`"S"`) while `eventToKey()` lowercases printable keys, and `sameKey()` only compares case-insensitively for length > 1. Net effect: **every uppercase letter shortcut was silently dead** — split (S), play/pause (K), stop (J), snap toggle (N), select tool (V), text tool (T) — even though they are wired live in `main.ts:273` and `timeline-view.ts:848`. One-line canonicalization in `parseBinding` (`p.length === 1 ? p.toLowerCase() : p`). **New regression suite** `packages/app/test/keyboard-map.test.ts` — 8 tests (K1 guard, platform mod routing, alt-distinctness, outsideInput suppression, unmatched→null, unique ids, `describeBinding`, parser canonicalization). App tests now **22/22** together with timeline-math (`node --test 'packages/app/test/*.test.ts'` — node 24 needs the glob; a bare directory arg fails `MODULE_NOT_FOUND`, docstrings updated in both files).
+
+### Verified clean (read review)
+
+- Action/binding table: no conflicts (distinct mod/alt/shift combos throughout; `Mod+Alt+Arrow*` trim vs `Mod+Arrow*` edit-jump correctly separated by alt); platform routing correct (mac→meta, other→ctrl; mac ignores ctrl-only); `outsideInput` discipline consistent; shortcut-sheet rendering fine (`⌘⇧Z` order is implementation-defined and correct).
+
+### Inspector — PASS with findings
+
+- **I5 (HONESTY, MEDIUM — canonical Agent 2 + export wiring owners):** `SPEED_UNAVAILABLE`, `PAN_UNAVAILABLE`, and the rotation hint are hardcoded "not yet rendered" strings — but `@ve/effects` now **renders rotation** (`rotate` filter, capability-gated — `export-chain.ts:150`) and ships speed support. Once the effects chain is wired into the engine export plan, these strings will lie in the *other* direction (declaring impossible what works). Replace hardcodes with a capability-driven probe at wiring time. Until wired, current text is honest (engine plan doesn't apply them yet).
+- **I1 (cosmetic):** `act()`'s `silent` option is dead — both branches notify identically.
+- **I2 (LOW):** the text-area keystroke `updateClip`s swallow errors via `.catch(() => {})` — silent failure if the clip vanishes mid-typing (the begin/endBatch history wrapping itself is sound under FIFO IPC).
+- **I3 (LOW, Mac layout reality):** `Alt+[` / `Alt+]` trim bindings produce curly-quote `e.key` values on macOS US layouts — the `Mod+Alt+ArrowLeft/Right` fallbacks cover it; consider deprioritizing the bracket forms in the Mac cheat sheet.
+- Honesty controls otherwise exemplary: speed/pan disabled **with accurate reasons**, rotation/keyframe limitation notes, missing-asset relink hint — all present and truthful.

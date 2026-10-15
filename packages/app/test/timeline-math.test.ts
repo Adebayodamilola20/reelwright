@@ -1,7 +1,8 @@
 /**
  * Unit tests for timeline view math (pure functions).
- * Run: node --test packages/app/test/
+ * Run: node --test 'packages/app/test/*.test.ts'
  * No build step required — Node ≥ 22.6 strips types natively.
+ * (node 24: a bare directory arg is treated as an entry module — MODULE_NOT_FOUND.)
  */
 
 import { test } from "node:test";

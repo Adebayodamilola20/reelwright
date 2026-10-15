@@ -200,7 +200,12 @@ export function parseBinding(binding: string): ParsedKey {
     else if (lower === "shift") out.shift = true;
     else if (lower === "alt" || lower === "option") out.alt = true;
     else if (lower === "meta" || lower === "cmd") continue; // avoid silent misuse
-    else out.key = p;
+    // Canonicalize single-character keys to lowercase ("S" → "s") so they
+    // compare equal to eventToKey()'s lowercased printable keys. Second-head
+    // fix K1: without this, every uppercase letter binding ("S", "K", "J",
+    // "N", "V", "T") failed sameKey()'s exact match and the whole letter
+    // shortcut set was silently dead.
+    else out.key = p.length === 1 ? p.toLowerCase() : p;
   }
   return out;
 }

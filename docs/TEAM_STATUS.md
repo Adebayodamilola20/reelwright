@@ -353,3 +353,56 @@ The project owner appointed this session **second head**: I make direct changes 
 3. **B1 re-verified GREEN 18:44** — both app tsconfigs exit 0. Coordinator: walkthrough prereq "B1 currently RED" is stale, re-check at gate.
 4. Findings **E3–E6** in `docs/REVIEW_LOG.md` Review #3 — E3 (preview silences audio tracks under video; chip only covers visual layers) needs an honesty-rule call from canonical Agent 2: mix or label.
 5. `scripts/export-e2e.mjs` stays team-2 Agent 1's lane — I see it growing (22 KB); no duplicate work from me.
+
+### AGENT 1 (team 1) — foundation slice handoff (2026-10-15, end of session)
+
+**Situation note:** my session started from the coordinator's original greenfield baseline (no commits, `docs/` only). Mid-session the repo advanced concurrently through Phases 1–4 with commits from the coordinator, team 2, and the second head. I stayed in my lane (`packages/engine/**`, contract, my docs), and I **did not touch `packages/app/**` or any other agent's files.** Two coordination facts from this:
+- **Repair committed:** my roadmap file collided with the coordinator's `docs/ROADMAP.md` (path race) — their master roadmap is fully restored from `f7283f9` and my content now lives as **Section F** (repair commit; verified: only additions vs `f7283f9`, zero deletions). Apologies to the coordinator — future appends will be edit-tool only.
+- **I absorbed second head's NTSC fix to `time.ts`** (their 6c27ed1 is an ancestor of my commits; fix present, verifier **41/41 green**).
+
+**What changed this session (files):**
+- `docs/PROJECT_CONTRACT.md` — **v1 written** (posted "CONTRACT v1 READY" at line 44): platform = Electron+TS (tradeoffs table), tick timebase, data shapes, events, persistence/relink rules, undo/redo model, `window.ve` boundary, export contract, provider gate, versioning rule.
+- `packages/engine/**` — full core: `time.ts` (70,560,000 ticks/s; NTSC-exact; timecode), `types.ts`/`api.ts` (contract mirrors), `store/store.ts` (snapshot undo/redo + gesture batching + dirty tracking), `ops/timeline.ts` (add/split/trim in-out+ripple/move cross-track+overwrite/duplicate/remove, track flags, text clips, validation), `media/probe.ts`+`assets.ts`+`tools.ts` (ffprobe ingest, 4-step path recovery, relink verification), `persistence/` (atomic `.veproj`, autosave ±recovery hint, recent), `export/` (capabilities probe, filtergraph plan, runner with progress/cancel/temp-promotion), `providers/` (honest stubs), `ipc/dispatcher.ts` (wiring snippet in header), `engine.ts` facade, `cli.ts` demo.
+- `docs/ROADMAP.md` Section F, `docs/TEAM_STATUS.md` entries, root scaffold (`package.json` workspaces — merged with others' `verify:*` scripts, nothing lost), `LICENSE`, `.gitignore`, `tsconfig.base.json`.
+- Tests: **33/33 pass across 3 consecutive runs** (`npm test -w @ve/engine`); `node scripts/verify-timebase.mjs` **41/41**; `node packages/engine/dist/cli.js demo ./demo-output` runs the full slice: create → import → split/trim/move/overlay/audio/text → batch undo → save → reopen **4/4 asset recovery** → honest `UNSUPPORTED_FEATURE` text-export rejection → mp4 export with progress → **4.50 s video+audio verified by ffprobe**.
+- Engine bug found+fixed during tests: head-trim did not shorten clip duration; progress events could be micro-non-monotonic (fps event emitted unrounded percent).
+
+**Files Agent 2 / app agents must know:** `packages/engine/src/api.ts` (grouped `EngineApi`, `EngineEvents`, `VeBridge`), `src/ipc/dispatcher.ts` (main/preload glue contract + snippet — engine exposes grouped methods: `dispatch('timeline.splitClip', [id, at])`), `src/errors.ts` (error envelope `{code,message,hint?}`), `src/time.ts` (snapping/timecode helpers for the timeline UI), `docs/PROJECT_CONTRACT.md` (normative).
+
+**Honesty gates (working as designed, not placeholders):** export rejects speed≠1, keyframes, rotation≠0, pan≠0 with `UNSUPPORTED_FEATURE`+hint; text burn-in blocked because local ffmpeg 8.1.1 Homebrew build **lacks drawtext/libfreetype** (capability probed at runtime; preview-side text unaffected). Waveform API, speed, keyframe evaluation, transitions = planned (Section F phases 2–3). Providers all `available:false` by design.
+
+**Integration conflicts to resolve next session:** contract review notes from other agents (templates bridge surface, `ProviderKind` extensions for tool categories, registration into `ProviderRegistry`) — agreed pattern: structural mirroring of shapes without importing engine where packages already do that. **Next useful step:** my next increment = waveform peaks API + (optionally) reading `PHASE_PLAN.md`/`ACCEPTANCE_WALKTHROUGH.md` prereqs that fall in engine lanes, then integrate the templates/provider notes into contract v1.1.
+
+---
+
+### Agent 1 (second team) — EXPORT E2E EVIDENCE for gate #2 / B2 (2026-10-15 19:00)
+
+**Lane:** `scripts/`, `test-media/`, root `package.json` test wiring only. `packages/engine/**` used READ-ONLY against built `dist/`. Commits: `55e5923`, `9bdd3b0` (earlier), `e15fdcd` (export E2E); npm wiring landed inside `80cc824` (another agent's sweep — content verified mine: `verify:timebase`, `verify:export`, `test` chain runs `verify:timebase` FIRST).
+
+**Commands run (all from repo root, after `npm run build -w @ve/engine` green):**
+
+```
+$ node scripts/verify-timebase.mjs      → 41 passed, 0 failed   (NTSC fix confirmed)
+$ node scripts/export-e2e.mjs           → 39 passed, 0 failed   (exit 0)
+$ npm run verify:timebase               → 41 passed, 0 failed
+$ npm run verify:export                 → 39 passed, 0 failed
+```
+
+**PHASE_PLAN export checkbox → evidence (Observed, command output in `demo-output/export-e2e-evidence.json`):**
+
+| Requirement | Scenario | Result |
+|---|---|---|
+| Export produces a playable file via ffmpeg | S1: project (320x240@30) with 2 video clips + image clip + audio clip → mp4 | **PASS** — ffprobe: `format=mp4`, `duration=5.000 s` (expected 5.000 ±0.25), video `h264 320x240 @30/1` **exactly 150 frames** (5 s × 30 fps), audio `aac 48000 Hz`, 59 KB, done.event outputPath exact |
+| Real progress % | S1 | **PASS** — percent events observed, monotonic (80 → 100), reaches 100 before `export:done`, all bound to this exportId |
+| Working cancel | S2: 1920x1080, 40 s program (20×2 s clips), cancel at first mid-flight report | **PASS** — `cancel()` returned true; terminal `export:cancelled` (not done); **no live ffmpeg process for this run** (ps scan); final output absent; no `.part-` temp leftovers |
+| Readable errors on failure | S3 missing input after import: throws `ASSET_MISSING`, message "Media file for asset \"source.mp4\" is missing.", hint "Use relink (project.relinkAsset)…", wire shape has no stack; `verifyAssets()` reports `{status:"missing"}` | **PASS** (6/6 checks) |
+| (unwritable output dir) | S4: chmod 555 dir → `export:error` event, code `FFMPEG_FAILED` (known EngineErrorCode), message "ffmpeg exited with code 243 before finishing.", hint = stderr tail `Error opening output … : Permissio…` (truncated by us, full in JSON); no stack leak; nothing created, no silent mkdir | **PASS** (6/6) |
+| Honesty rule (text) | S5: text clip export with drawtext-less ffmpeg → `UNSUPPORTED_FEATURE` + hint "Install ffmpeg with libfreetype, or remove text clips…"; `capabilities.textBurnIn=false` | **PASS** (4/4) |
+
+**Findings (advisory, for engine owner — NOT patched by me, tree read-only):**
+- W1 (LOW): S4's ffmpeg exit code surfaces as `243` (`ffmpeg exited with code 243`) — likely exit-status wrapping of a signal; readable but a normalized code/128+signal note in `details` would help support.
+- W2 (INFO): a *nonexistent* output parent dir would map to `ASSET_MISSING` via the stderr "No such file" rule (output-open failures read as missing media). The perm-denied path correctly lands on `FFMPEG_FAILED`; no action needed unless you want `IO_ERROR` for `Error opening output` stderr.
+
+**Checklist status (my lane):** Phase-1 "Export produces a playable file…" = **evidence complete, PASS** pending coordinator's own run at gate. B2 satisfied as far as this lane goes. `npm test` now fails if timebase claims break (dependency-free, first in chain).
+
+**Next useful step:** stand by for gate #2 findings; available to extend E2E (wav/mp3 container exports, overwrite-mode clips, range export) on request.
